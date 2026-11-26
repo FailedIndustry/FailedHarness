@@ -1,8 +1,9 @@
 import { T, useGT } from "gt-react-native";
 import type { EnvironmentId, ThreadId, TurnItemId } from "@t3tools/contracts";
 import { TERMINAL_PALETTES, terminalOutputSpans } from "@t3tools/shared/terminalOutput";
+import { useSyncLayout } from "@legendapp/list/react-native";
 import type React from "react";
-import { useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { ScrollView, View } from "react-native";
 
 import { AppText as Text } from "../../components/ui/AppText";
@@ -39,6 +40,9 @@ export function ThreadCommandOutput(props: {
     () => terminalOutputSpans(text, TERMINAL_PALETTES[props.themeAppearance]),
     [text, props.themeAppearance],
   );
+  const syncListLayout = useSyncLayout();
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- output that loads after the row opens makes it taller; the list measures it in this commit, not after a layout event a busy thread delays
+  useLayoutEffect(syncListLayout);
   if (text.length === 0) {
     const message = error
       ? gt("Couldn't load output: {error}", { error })

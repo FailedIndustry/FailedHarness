@@ -21,7 +21,7 @@ import { T, useGT, useMessages } from "gt-react-native";
 import { Image } from "expo-image";
 import { type AppSymbolName, SymbolView } from "../../components/ui/AppSymbol";
 import { MaskedView } from "@expo/ui/community/masked-view";
-import type { LegendListRef } from "@legendapp/list/react-native";
+import { useSyncLayout, type LegendListRef } from "@legendapp/list/react-native";
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
 import { useIsFocused } from "@react-navigation/native";
 import {
@@ -647,6 +647,14 @@ function ThreadWorkGroupList(props: {
   const loadedRef = useRef(false);
   const [contentHeight, setContentHeight] = useState(estimatedRowsHeight);
   const height = Math.min(contentHeight, WORK_GROUP_MAX_HEIGHT);
+  const syncFeedLayout = useSyncLayout();
+  const previousHeight = useRef(height);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- the group's height follows its own list's content; the feed measures the new height now, not after a layout event a busy thread delays
+  useLayoutEffect(() => {
+    if (previousHeight.current === height) return;
+    previousHeight.current = height;
+    syncFeedLayout();
+  }, [height, syncFeedLayout]);
   const scrollOffset = useSharedValue(initialPosition?.scrollOffset ?? 0);
   const sharedValues = { scrollOffset };
 
@@ -918,6 +926,11 @@ const ThreadWorkLogRow = function ThreadWorkLogRow(
       ? { environmentId: props.environmentId, row: row.projectedItem }
       : null,
   );
+  const syncListLayout = useSyncLayout();
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- output that loads after the row opens makes it taller; the list measures it in this commit, not after a layout event a busy thread delays
+  useLayoutEffect(() => {
+    if (expanded) syncListLayout();
+  });
   const failureItem = row.projectedItem.item;
   if (failureItem.type === "error" && failureItem.status === "failed") {
     const warning = failureItem.failure.class === "usage_limit";
