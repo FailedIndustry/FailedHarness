@@ -1,6 +1,13 @@
 import * as Schema from "effect/Schema";
+import * as HttpServerRespondable from "effect/http/HttpServerRespondable";
+import * as HttpServerResponse from "effect/http/HttpServerResponse";
 
-import { ForwardCompatibleArray, NonNegativeInt } from "./baseSchemas.ts";
+import {
+  ForwardCompatibleArray,
+  NonNegativeInt,
+  PositiveInt,
+  TrimmedNonEmptyString,
+} from "./baseSchemas.ts";
 
 /**
  * Version 1 of the review packet a project's harness assembles and the claims file the
@@ -13,7 +20,7 @@ const REVIEW_PACKET_SCHEMA_VERSION = 1;
 
 const ClaimId = Schema.String.check(Schema.isPattern(/^[a-z0-9][a-z0-9-]*$/u));
 const CommitSha = Schema.String.check(Schema.isPattern(/^[0-9a-f]{40}$/u));
-const MediaId = Schema.String.check(Schema.isPattern(/^sha256:[0-9a-f]{64}$/u));
+export const ReviewMediaId = Schema.String.check(Schema.isPattern(/^sha256:[0-9a-f]{64}$/u));
 const UtcTimestamp = Schema.String.check(
   Schema.isPattern(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/u),
 );
@@ -35,15 +42,15 @@ export type ReviewClaimsFile = typeof ReviewClaimsFile.Type;
 const ImageEvidence = Schema.Struct({
   id: Schema.String,
   kind: Schema.Literal("image"),
-  media: MediaId,
+  media: ReviewMediaId,
   caption: Schema.optionalKey(Schema.String),
 });
 
 const ClipEvidence = Schema.Struct({
   id: Schema.String,
   kind: Schema.Literal("clip"),
-  media: MediaId,
-  recording: Schema.optionalKey(MediaId),
+  media: ReviewMediaId,
+  recording: Schema.optionalKey(ReviewMediaId),
   startMs: NonNegativeInt,
   endMs: NonNegativeInt,
 }).check(Schema.makeFilter((clip) => clip.endMs >= clip.startMs));
@@ -59,7 +66,7 @@ const KnownEvidence = Schema.Union([ImageEvidence, ClipEvidence, CheckEvidence])
 export type ReviewEvidence = typeof KnownEvidence.Type;
 
 const MediaEntry = Schema.Struct({
-  id: MediaId,
+  id: ReviewMediaId,
   file: Schema.String,
   type: Schema.String,
   bytes: NonNegativeInt,
@@ -67,6 +74,8 @@ const MediaEntry = Schema.Struct({
   height: Schema.optionalKey(NonNegativeInt),
   durationMs: Schema.optionalKey(NonNegativeInt),
 });
+
+const ReviewPacketVerdict = Schema.Literals(["pass", "fail", "blocked"]);
 
 const makePacket = <EvidenceList extends Schema.Top>(evidence: EvidenceList) => {
   const finding = Schema.Struct({ text: Schema.String, evidence: Schema.optionalKey(evidence) });
@@ -81,7 +90,7 @@ const makePacket = <EvidenceList extends Schema.Top>(evidence: EvidenceList) => 
     revision: Schema.Struct({ base: CommitSha, head: CommitSha, recordedAt: UtcTimestamp }),
     summary: Schema.optionalKey(Schema.String),
     status: Schema.Struct({
-      verdict: Schema.Literals(["pass", "fail", "blocked"]),
+      verdict: ReviewPacketVerdict,
       checks: Schema.optionalKey(
         Schema.Struct({
           passed: NonNegativeInt,
@@ -135,3 +144,114 @@ export const findDanglingMediaReferences = (packet: ReviewPacket): ReadonlyArray
   for (const finding of [...packet.blockers, ...packet.notes]) visit(finding.evidence ?? []);
   return [...dangling];
 };
+
+/**
+ * A change as the server stores it: a branch of a repository on a forge. `repository` is the
+ * lowercased `owner/name`; `host` is null when intake could not tell which forge it lives on.
+ */
+export const ReviewPacketChangeRef = Schema.Struct({
+  host: Schema.NullOr(TrimmedNonEmptyString),
+  repository: TrimmedNonEmptyString,
+  branch: TrimmedNonEmptyString,
+});
+export type ReviewPacketChangeRef = typeof ReviewPacketChangeRef.Type;
+
+export const ReviewPacketRevisionSummary = Schema.Struct({
+  head: CommitSha,
+  base: CommitSha,
+  recordedAt: UtcTimestamp,
+  verdict: ReviewPacketVerdict,
+});
+export type ReviewPacketRevisionSummary = typeof ReviewPacketRevisionSummary.Type;
+
+/** A change's latest stored revision, without its manifest. */
+export const ReviewPacketChangeSummary = Schema.Struct({
+  ...ReviewPacketChangeRef.fields,
+  pullRequest: Schema.NullOr(NonNegativeInt),
+  ...ReviewPacketRevisionSummary.fields,
+  claims: Schema.Struct({
+    seen: NonNegativeInt,
+    notSeen: NonNegativeInt,
+    untested: NonNegativeInt,
+  }),
+  blockers: NonNegativeInt,
+});
+export type ReviewPacketChangeSummary = typeof ReviewPacketChangeSummary.Type;
+
+const REVIEW_PACKET_LIST_MAX_LIMIT = 100;
+
+/** Every filter is optional; changes come newest recorded first. */
+export const ReviewPacketListInput = Schema.Struct({
+  host: Schema.optionalKey(TrimmedNonEmptyString),
+  repository: Schema.optionalKey(TrimmedNonEmptyString),
+  pullRequest: Schema.optionalKey(PositiveInt),
+  limit: Schema.optionalKey(
+    PositiveInt.check(Schema.isLessThanOrEqualTo(REVIEW_PACKET_LIST_MAX_LIMIT)),
+  ),
+});
+export type ReviewPacketListInput = typeof ReviewPacketListInput.Type;
+
+export const ReviewPacketListResult = Schema.Struct({
+  changes: Schema.Array(ReviewPacketChangeSummary),
+  hasMore: Schema.Boolean,
+});
+export type ReviewPacketListResult = typeof ReviewPacketListResult.Type;
+
+/** Without `head`, the change's latest revision. */
+export const ReviewPacketGetInput = Schema.Struct({
+  ...ReviewPacketChangeRef.fields,
+  head: Schema.optionalKey(CommitSha),
+});
+export type ReviewPacketGetInput = typeof ReviewPacketGetInput.Type;
+
+export const ReviewPacketGetResult = Schema.Struct({
+  packet: Schema.NullOr(ReviewPacket),
+  /** Every stored revision of the change, newest recorded first. */
+  revisions: Schema.Array(ReviewPacketRevisionSummary),
+});
+export type ReviewPacketGetResult = typeof ReviewPacketGetResult.Type;
+
+/** A packet folder on the server's own filesystem. */
+export const ReviewPacketSubmitInput = Schema.Struct({
+  directory: TrimmedNonEmptyString,
+});
+export type ReviewPacketSubmitInput = typeof ReviewPacketSubmitInput.Type;
+
+export const ReviewPacketSubmitResult = Schema.Struct({
+  change: ReviewPacketChangeSummary,
+  /** The same revision was stored before and its manifest was replaced. */
+  replaced: Schema.Boolean,
+  media: Schema.Struct({ copied: NonNegativeInt, reused: NonNegativeInt }),
+  pruned: Schema.Struct({ revisions: NonNegativeInt, media: NonNegativeInt }),
+});
+export type ReviewPacketSubmitResult = typeof ReviewPacketSubmitResult.Type;
+
+export class ReviewPacketRejectedError extends Schema.TaggedError<ReviewPacketRejectedError>()(
+  "ReviewPacketRejectedError",
+  {
+    /** The intake check that failed, such as `ReviewPacketMediaHashMismatchError`. */
+    problem: TrimmedNonEmptyString,
+    detail: TrimmedNonEmptyString,
+  },
+  { httpApiStatus: 422 },
+) {
+  [HttpServerRespondable.symbol]() {
+    return HttpServerResponse.schemaJson(ReviewPacketRejectedError)(this, { status: 422 });
+  }
+
+  override get message(): string {
+    return this.detail;
+  }
+}
+
+export class ReviewPacketReadError extends Schema.TaggedError<ReviewPacketReadError>()(
+  "ReviewPacketReadError",
+  {
+    operation: Schema.Literals(["list", "get", "mediaType"]),
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {
+  override get message(): string {
+    return "Could not read the stored review packets.";
+  }
+}

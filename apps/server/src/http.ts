@@ -182,6 +182,7 @@ export const assetFileResponse = Effect.fn("assetFileResponse")(function* (
     readonly mimeType?: string;
     readonly file?: OpenMediaFile;
     readonly renderIntent?: "mcp-app" | "file-preview";
+    readonly immutable?: { readonly etag: string; readonly maxAgeSeconds: number };
   },
   rangeHeader?: string,
   ifRangeHeader?: string,
@@ -235,7 +236,12 @@ export const assetFileResponse = Effect.fn("assetFileResponse")(function* (
   const mediaFile = asset.file;
   const mediaInfo = mediaFile ? yield* statMediaFile(asset.path, mediaFile) : undefined;
   const isMedia = /^(?:audio|video)\//i.test(asset.mimeType ?? "");
-  if (isMedia) {
+  const etag = asset.immutable === undefined ? undefined : `"${asset.immutable.etag}"`;
+  if (asset.immutable !== undefined) {
+    // The bytes are named by their hash, so the ETag proves identity; the max-age ends with the URL.
+    headers["Cache-Control"] = `private, max-age=${asset.immutable.maxAgeSeconds}, immutable`;
+    headers.ETag = `"${asset.immutable.etag}"`;
+  } else if (isMedia) {
     // Without file identity, validators cannot guarantee byte equality; attachments must also expire with their URL.
     headers["Cache-Control"] = "private, no-store";
   }
@@ -245,7 +251,11 @@ export const assetFileResponse = Effect.fn("assetFileResponse")(function* (
   {
     headers["Accept-Ranges"] = "bytes";
     // If-Range requires a matching validator. A full response is safe when we cannot validate it.
-    if (method === "GET" && rangeHeader && ifRangeHeader === undefined) {
+    if (
+      method === "GET" &&
+      rangeHeader &&
+      (ifRangeHeader === undefined || (etag !== undefined && ifRangeHeader === etag))
+    ) {
       const fs = yield* FileSystem.FileSystem;
       const info = mediaInfo ?? (yield* fs.stat(asset.path));
       const range = assetByteRange(rangeHeader, info.size);
@@ -266,7 +276,7 @@ export const assetFileResponse = Effect.fn("assetFileResponse")(function* (
   if (mediaFile && mediaInfo) {
     const size = bytesToRead ?? mediaInfo.size;
     headers["Content-Length"] = String(size);
-    if (!isMedia) {
+    if (!isMedia && etag === undefined) {
       headers["Last-Modified"] = mediaInfo.mtime.toUTCString();
       headers.ETag = `W/"${mediaInfo.size.toString(16)}-${mediaInfo.mtimeMs.toString(16)}"`;
     }

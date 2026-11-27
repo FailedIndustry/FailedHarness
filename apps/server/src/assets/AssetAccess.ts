@@ -78,6 +78,7 @@ export const ASSET_ROUTE_PREFIX = "/api/assets";
 const ASSET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const PROJECT_FAVICON_TOKEN_BUCKET_MS = 30 * 60 * 1000;
 const HTML_ATTACHMENT_TOKEN_BUCKET_MS = 30 * 60 * 1000;
+const REVIEW_MEDIA_TOKEN_BUCKET_MS = 30 * 60 * 1000;
 const PROJECT_FAVICON_VERSION_PREFIX = "v";
 const PROJECT_FAVICON_ICNS_MIN_SIZE = 96;
 const INLINE_VIDEO_MIME_TYPE_PATTERN = /^video\/[\w!#$&^.+-]+$/i;
@@ -201,6 +202,13 @@ const AssetClaimsSchema = Schema.Union([
   }),
   Schema.Struct({
     version: Schema.Literal(1),
+    kind: Schema.Literal("review-media"),
+    sha256: Schema.String,
+    mimeType: Schema.String,
+    expiresAt: Schema.Number,
+  }),
+  Schema.Struct({
+    version: Schema.Literal(1),
     kind: Schema.Literal(SOURCE_CONTROL_MEDIA_ASSET),
     /** A host's `fetchUrl`, narrowed at mint time; the signature is what keeps it there. */
     url: Schema.String,
@@ -224,6 +232,8 @@ export type ResolvedAsset =
       readonly mimeType?: string;
       readonly file?: OpenMediaFile;
       readonly renderIntent?: "mcp-app" | "file-preview";
+      /** Bytes that never change at this URL, cacheable until it expires. */
+      readonly immutable?: { readonly etag: string; readonly maxAgeSeconds: number };
     }
   | {
       readonly kind: "bytes";
@@ -620,6 +630,8 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
   readonly projectFaviconPath?: string;
   /** Where a cloned project's checkout stands, while the clone tracker still knows it. */
   readonly projectCheckout?: "pending" | "cloned";
+  /** The stored type of review media; absent when no stored packet lists it. */
+  readonly reviewMediaType?: string;
 }) {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -931,6 +943,24 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
       fileName = "native-app-icon.png";
       break;
     }
+    case "review-media": {
+      if (input.reviewMediaType === undefined) {
+        return yield* new AssetWorkspaceAssetNotFoundError({ resource: input.resource });
+      }
+      // Content-addressed: one URL per bucket lets clients cache across re-mints.
+      expiresAt =
+        Math.ceil(expiresAt / REVIEW_MEDIA_TOKEN_BUCKET_MS) * REVIEW_MEDIA_TOKEN_BUCKET_MS;
+      const sha256 = input.resource.id.slice("sha256:".length);
+      claims = {
+        version: 1,
+        kind: "review-media",
+        sha256,
+        mimeType: input.reviewMediaType,
+        expiresAt,
+      };
+      fileName = sha256;
+      break;
+    }
     case SOURCE_CONTROL_MEDIA_ASSET: {
       const media = sourceControlDefinitions.mediaUrl(input.resource.url);
       if (media === null) {
@@ -1085,6 +1115,37 @@ export const resolveAsset = Effect.fn("AssetAccess.resolveAsset")(function* (
       Effect.orElseSucceed(() => null),
     );
     return file ? ({ kind: "file", path: background.path, file } satisfies ResolvedAsset) : null;
+  }
+
+  if (claims.kind === "review-media") {
+    const config = yield* ServerConfig.ServerConfig;
+    const fileSystem = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    // openMediaFile refuses any path that is not canonical, and the state directory may be a link.
+    const mediaDir = yield* fileSystem
+      .realPath(config.reviewMediaDir)
+      .pipe(Effect.orElseSucceed(() => null));
+    if (mediaDir === null) return null;
+    const mediaPath = path.join(mediaDir, claims.sha256);
+    const file = yield* openMediaFile(mediaPath).pipe(
+      Effect.tapError((cause) =>
+        Effect.logError("Failed to open review media.", { path: mediaPath, cause }),
+      ),
+      Effect.orElseSucceed(() => null),
+    );
+    const now = yield* Clock.currentTimeMillis;
+    return file
+      ? ({
+          kind: "file",
+          path: mediaPath,
+          mimeType: claims.mimeType,
+          file,
+          immutable: {
+            etag: claims.sha256,
+            maxAgeSeconds: Math.max(0, Math.floor((claims.expiresAt - now) / 1000)),
+          },
+        } satisfies ResolvedAsset)
+      : null;
   }
 
   if (claims.kind === "native-app-icon") {

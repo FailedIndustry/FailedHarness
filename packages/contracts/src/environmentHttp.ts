@@ -83,6 +83,11 @@ import {
 } from "./orchestrationV2.ts";
 import { Project, ProjectMutation, ProjectSnapshot } from "./project.ts";
 import {
+  ReviewPacketRejectedError,
+  ReviewPacketSubmitInput,
+  ReviewPacketSubmitResult,
+} from "./reviewPacket.ts";
+import {
   PullRequestDiffInput,
   PullRequestDiffResult,
   PullRequestOperationError,
@@ -846,6 +851,21 @@ class EnvironmentPullRequestsHttpApi extends HttpApiGroup.make("pullRequests").a
   }).middleware(EnvironmentAuthenticatedAuth),
 ) {}
 
+// The server reads the folder the caller names, so the CLI on the same machine is its caller.
+class EnvironmentReviewPacketsHttpApi extends HttpApiGroup.make("reviewPackets").add(
+  HttpApiEndpoint.post("submit", "/api/review-packets/submit", {
+    headers: OptionalBearerHeaders,
+    payload: ReviewPacketSubmitInput,
+    success: ReviewPacketSubmitResult,
+    error: [
+      ReviewPacketRejectedError,
+      EnvironmentAuthInvalidError,
+      EnvironmentScopeRequiredError,
+      EnvironmentInternalError,
+    ],
+  }).middleware(EnvironmentAuthenticatedAuth),
+) {}
+
 export class EnvironmentVoiceBodyLimit extends HttpApiMiddleware.Service<EnvironmentVoiceBodyLimit>()(
   "EnvironmentVoiceBodyLimit",
   { error: EnvironmentRequestInvalidError },
@@ -1107,6 +1127,7 @@ export class EnvironmentHttpApi extends HttpApi.make("environment")
   .add(EnvironmentOrchestrationHttpApi)
   .add(EnvironmentPullRequestsHttpApi)
   .add(EnvironmentProjectsHttpApi)
+  .add(EnvironmentReviewPacketsHttpApi)
   .add(EnvironmentVoiceHttpApi)
   .add(EnvironmentConnectHttpApi)
   .add(EnvironmentWebhooksHttpApi)

@@ -7,6 +7,7 @@ import {
   PROVIDER_SEND_TURN_SUPPORTED_IMAGE_MIME_TYPES,
 } from "./chatAttachment.ts";
 import { ProjectFaviconPath } from "./project.ts";
+import { ReviewMediaId } from "./reviewPacket.ts";
 import { ToolActivityNativeAppReference } from "./providerRuntime.ts";
 import { EnvironmentThemeId } from "./server.ts";
 
@@ -76,6 +77,8 @@ export const AssetResource = Schema.Union([
     url: TrimmedNonEmptyString.check(Schema.isMaxLength(2048)),
     repository: Schema.optionalKey(TrimmedNonEmptyString.check(Schema.isMaxLength(512))),
   }),
+  // Evidence a review packet stored, addressed by its content hash.
+  Schema.TaggedStruct("review-media", { id: ReviewMediaId }),
 ]);
 export type AssetResource = typeof AssetResource.Type;
 

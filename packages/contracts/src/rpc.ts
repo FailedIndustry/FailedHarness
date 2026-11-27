@@ -230,6 +230,13 @@ import {
 } from "./guestShare.ts";
 import { PullRequestReviewGuideResult } from "./pullRequestReviewGuide.ts";
 import {
+  ReviewPacketGetInput,
+  ReviewPacketGetResult,
+  ReviewPacketListInput,
+  ReviewPacketListResult,
+  ReviewPacketReadError,
+} from "./reviewPacket.ts";
+import {
   PullRequestActionInput,
   PullRequestActivity,
   PullRequestChangeBreakdown,
@@ -559,6 +566,8 @@ export const WS_METHODS = {
   reviewGetBranchCommits: "review.getBranchCommits",
   reviewGetDiffPreview: "review.getDiffPreview",
   reviewGetDiffFileContents: "review.getDiffFileContents",
+  reviewPacketsList: "reviewPackets.list",
+  reviewPacketsGet: "reviewPackets.get",
 
   terminalOpen: "terminal.open",
   terminalAttach: "terminal.attach",
@@ -1960,6 +1969,18 @@ const WsReviewGetDiffFileContentsRpc = Rpc.make(WS_METHODS.reviewGetDiffFileCont
   error: Schema.Union([ReviewDiffPreviewError, EnvironmentAuthorizationError]),
 });
 
+const WsReviewPacketsListRpc = Rpc.make(WS_METHODS.reviewPacketsList, {
+  payload: ReviewPacketListInput,
+  success: ReviewPacketListResult,
+  error: Schema.Union([ReviewPacketReadError, EnvironmentAuthorizationError]),
+});
+
+const WsReviewPacketsGetRpc = Rpc.make(WS_METHODS.reviewPacketsGet, {
+  payload: ReviewPacketGetInput,
+  success: ReviewPacketGetResult,
+  error: Schema.Union([ReviewPacketReadError, EnvironmentAuthorizationError]),
+});
+
 const WsTerminalOpenRpc = Rpc.make(WS_METHODS.terminalOpen, {
   payload: TerminalOpenInput,
   success: TerminalSessionSnapshot,
@@ -2701,6 +2722,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsReviewGetBranchCommitsRpc,
   WsReviewGetDiffPreviewRpc,
   WsReviewGetDiffFileContentsRpc,
+  WsReviewPacketsListRpc,
+  WsReviewPacketsGetRpc,
   WsTerminalOpenRpc,
   WsTerminalAttachRpc,
   WsTerminalObserveRpc,
