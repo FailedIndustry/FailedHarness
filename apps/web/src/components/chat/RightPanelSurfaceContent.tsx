@@ -162,7 +162,7 @@ export function RightPanelSurfaceContent(props: {
             repository: surface.repository,
             number: surface.number,
           }}
-          initialTab={surface.detailTab ?? "summary"}
+          initialTab={surface.detailTab}
           revealUrl={surface.revealUrl}
           onRevealSettled={(revealUrl) => {
             useRightPanelStore.getState().settlePullRequestReveal(threadRef, surface.id, revealUrl);

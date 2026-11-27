@@ -35,7 +35,7 @@ const RIGHT_PANEL_KINDS = [
 ] as const;
 export type RightPanelKind = (typeof RIGHT_PANEL_KINDS)[number];
 
-export type PullRequestDetailTab = "summary" | "guide" | "timeline" | "code";
+export type PullRequestDetailTab = "packet" | "summary" | "guide" | "timeline" | "code";
 
 export interface DeviceTabTarget {
   hostId: string;
@@ -980,8 +980,7 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
           const existing = state.byThreadKey[threadKey]?.surfaces.find(
             (surface) => surface.id === surfaceId,
           );
-          if (existing?.kind !== "pull-request" || (existing.detailTab ?? "summary") === detailTab)
-            return state;
+          if (existing?.kind !== "pull-request" || existing.detailTab === detailTab) return state;
           return automaticUpdate(state, threadKey, (current) => ({
             ...current,
             surfaces: current.surfaces.map((surface) =>
