@@ -19,6 +19,7 @@ import {
   AuthSourceControlWriteScope,
   AuthTerminalReadScope,
   AuthTerminalOperateScope,
+  CLIENT_GUARDED_RPC_SCOPES,
   CommandId,
   MessageId,
   ORCHESTRATION_V2_WS_METHODS,
@@ -95,6 +96,30 @@ describe("RPC authorization scopes", () => {
     expect(requiredScopeForRpcMethod(WS_METHODS.workspaceAddTaskFolderRepository)).toBe(
       AuthSourceControlWriteScope,
     );
+  });
+
+  it("lets thread readers read review comments and takes thread operation to write or send them", () => {
+    for (const method of [
+      WS_METHODS.reviewCommentsList,
+      WS_METHODS.reviewPacketsSubscribeChanges,
+    ]) {
+      expect(requiredScopeForRpcMethod(method)).toBe(AuthOrchestrationReadScope);
+    }
+    // The recorded diff reads the project's checkout.
+    expect(requiredScopeForRpcMethod(WS_METHODS.reviewPacketsRecordedDiff)).toBe(
+      AuthFilesystemReadScope,
+    );
+    for (const method of [
+      WS_METHODS.reviewCommentsCreate,
+      WS_METHODS.reviewCommentsEdit,
+      WS_METHODS.reviewCommentsDelete,
+      WS_METHODS.reviewCommentsReply,
+      WS_METHODS.reviewCommentsSetResolved,
+      WS_METHODS.reviewCommentsSend,
+    ]) {
+      expect(requiredScopeForRpcMethod(method)).toBe(AuthOrchestrationOperateScope);
+      expect(CLIENT_GUARDED_RPC_SCOPES[method]).toBe(AuthOrchestrationOperateScope);
+    }
   });
 
   it("still lets readers load settings the way installed Swift clients ask", () => {

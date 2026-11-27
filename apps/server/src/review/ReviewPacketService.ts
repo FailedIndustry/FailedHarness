@@ -10,6 +10,7 @@ import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
+import * as SubscriptionRef from "effect/SubscriptionRef";
 
 import {
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
@@ -209,6 +210,11 @@ export class ReviewPacketService extends Context.Service<
     readonly mediaType: (
       mediaId: string,
     ) => Effect.Effect<Option.Option<string>, ReviewPacketReadError>;
+    /** Where stored media lives on this machine; the file may be gone once no revision lists it. */
+    readonly mediaPath: (mediaId: string) => string;
+    /** Counts up when a packet or review comment of this environment changes. */
+    readonly changes: Stream.Stream<number>;
+    readonly notifyChanged: Effect.Effect<void>;
   }
 >()("t3/review/ReviewPacketService") {}
 
@@ -301,6 +307,8 @@ const make = Effect.gen(function* () {
   const identities = yield* RepositoryIdentityResolver.RepositoryIdentityResolver;
   // One intake at a time, so a revision's media cannot be collected while another reuses it.
   const intake = yield* Semaphore.make(1);
+  const revision = yield* SubscriptionRef.make(0);
+  const notifyChanged = SubscriptionRef.update(revision, (current) => current + 1);
 
   const storeError = (operation: string) => (cause: unknown) =>
     new ReviewPacketStoreError({ operation, cause });
@@ -487,6 +495,7 @@ const make = Effect.gen(function* () {
               ),
             { discard: true },
           );
+          yield* notifyChanged;
           return {
             change: stored.summary,
             replaced: stored.replaced,
@@ -534,6 +543,9 @@ const make = Effect.gen(function* () {
     mediaType: Effect.fn("ReviewPacketService.mediaType")(function* (mediaId) {
       return yield* repository.mediaType(mediaId).pipe(Effect.mapError(readError("mediaType")));
     }),
+    mediaPath: (mediaId) => mediaPath(path.resolve(config.reviewMediaDir), mediaId),
+    changes: SubscriptionRef.changes(revision).pipe(Stream.filter((current) => current > 0)),
+    notifyChanged,
   });
 });
 

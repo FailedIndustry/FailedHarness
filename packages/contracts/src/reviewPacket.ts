@@ -18,12 +18,15 @@ import {
 
 const REVIEW_PACKET_SCHEMA_VERSION = 1;
 
-const ClaimId = Schema.String.check(Schema.isPattern(/^[a-z0-9][a-z0-9-]*$/u));
-const CommitSha = Schema.String.check(Schema.isPattern(/^[0-9a-f]{40}$/u));
+export const ReviewClaimId = Schema.String.check(Schema.isPattern(/^[a-z0-9][a-z0-9-]*$/u));
+const ClaimId = ReviewClaimId;
+export const ReviewCommitSha = Schema.String.check(Schema.isPattern(/^[0-9a-f]{40}$/u));
+const CommitSha = ReviewCommitSha;
 export const ReviewMediaId = Schema.String.check(Schema.isPattern(/^sha256:[0-9a-f]{64}$/u));
-const UtcTimestamp = Schema.String.check(
+export const ReviewTimestamp = Schema.String.check(
   Schema.isPattern(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/u),
 );
+const UtcTimestamp = ReviewTimestamp;
 const Pathspecs = Schema.Array(Schema.String);
 
 export const ReviewClaimsFile = Schema.Struct({
@@ -164,6 +167,19 @@ export const ReviewPacketRevisionSummary = Schema.Struct({
 });
 export type ReviewPacketRevisionSummary = typeof ReviewPacketRevisionSummary.Type;
 
+/**
+ * A change's review comments by state; `unsent` counts the comments and follow-ups a send would
+ * deliver. Older servers omit it from summaries.
+ */
+export const ReviewCommentCounts = Schema.Struct({
+  pending: NonNegativeInt,
+  open: NonNegativeInt,
+  answered: NonNegativeInt,
+  resolved: NonNegativeInt,
+  unsent: NonNegativeInt,
+});
+export type ReviewCommentCounts = typeof ReviewCommentCounts.Type;
+
 /** A change's latest stored revision, without its manifest. */
 export const ReviewPacketChangeSummary = Schema.Struct({
   ...ReviewPacketChangeRef.fields,
@@ -175,6 +191,8 @@ export const ReviewPacketChangeSummary = Schema.Struct({
     untested: NonNegativeInt,
   }),
   blockers: NonNegativeInt,
+  /** Set by `reviewPackets.list`. */
+  comments: Schema.optionalKey(ReviewCommentCounts),
 });
 export type ReviewPacketChangeSummary = typeof ReviewPacketChangeSummary.Type;
 

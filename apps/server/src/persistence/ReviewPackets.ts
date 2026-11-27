@@ -36,6 +36,15 @@ const SummaryRow = Schema.Struct({
   blockers: Schema.Number,
 });
 
+const ListRow = Schema.Struct({
+  ...SummaryRow.fields,
+  commentsPending: Schema.Number,
+  commentsOpen: Schema.Number,
+  commentsAnswered: Schema.Number,
+  commentsResolved: Schema.Number,
+  commentsUnsent: Schema.Number,
+});
+
 const toSummary = (row: typeof SummaryRow.Type): ReviewPacketChangeSummary => ({
   host: row.host === "" ? null : row.host,
   repository: row.repository,
@@ -217,7 +226,13 @@ const make = Effect.gen(function* () {
         const repository = filter.repository ?? null;
         const pullRequest = filter.pullRequest ?? null;
         const rows = yield* sql`
-          SELECT ${summaryColumns} FROM (
+          SELECT ${summaryColumns},
+            COALESCE(comments.pending, 0) AS "commentsPending",
+            COALESCE(comments.open, 0) AS "commentsOpen",
+            COALESCE(comments.answered, 0) AS "commentsAnswered",
+            COALESCE(comments.resolved, 0) AS "commentsResolved",
+            COALESCE(comments.unsent, 0) AS "commentsUnsent"
+          FROM (
             SELECT host, repository, branch, pull_request, head, base, recorded_at, verdict,
               claims_seen, claims_not_seen, claims_untested, blockers, ROW_NUMBER() OVER (
               PARTITION BY host, repository, branch ${newestFirst}
@@ -226,12 +241,31 @@ const make = Effect.gen(function* () {
             WHERE (${host} IS NULL OR host = ${host})
               AND (${repository} IS NULL OR repository = ${repository})
               AND (${pullRequest} IS NULL OR pull_request = ${pullRequest})
-          )
+          ) AS latest
+          LEFT JOIN (
+            SELECT host, repository, branch,
+              SUM(state = 'pending') AS pending, SUM(state = 'open') AS open,
+              SUM(state = 'answered') AS answered, SUM(state = 'resolved') AS resolved,
+              SUM(unsent) AS unsent
+            FROM review_comments
+            WHERE (${host} IS NULL OR host = ${host})
+              AND (${repository} IS NULL OR repository = ${repository})
+            GROUP BY host, repository, branch
+          ) AS comments USING (host, repository, branch)
           WHERE position = 1
           ORDER BY recorded_at DESC, host, repository, branch
           LIMIT ${filter.limit}
-        `.pipe(decodeRows(SummaryRow), NodeSqliteClient.readOnly);
-        return rows.map(toSummary);
+        `.pipe(decodeRows(ListRow), NodeSqliteClient.readOnly);
+        return rows.map((row) => ({
+          ...toSummary(row),
+          comments: {
+            pending: row.commentsPending,
+            open: row.commentsOpen,
+            answered: row.commentsAnswered,
+            resolved: row.commentsResolved,
+            unsent: row.commentsUnsent,
+          },
+        }));
       },
       Effect.mapError(toError("listReviewPackets")),
     ),

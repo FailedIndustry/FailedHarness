@@ -238,6 +238,7 @@ import * as GitWorkflowService from "./git/GitWorkflowService.ts";
 import { assertCheckoutIdle } from "./git/sharedCheckoutGuard.ts";
 import { refreshPushedPullRequests } from "./git/refreshPushedPullRequests.ts";
 import { linkCreatedPullRequest } from "./git/linkCreatedPullRequest.ts";
+import * as ReviewCommentService from "./review/ReviewCommentService.ts";
 import * as ReviewPacketService from "./review/ReviewPacketService.ts";
 import * as ReviewService from "./review/ReviewService.ts";
 import * as ProjectEnrichmentService from "./project/ProjectEnrichmentService.ts";
@@ -1525,6 +1526,7 @@ export const layerWsRpc = (
       const issueTrackers = yield* IssueTrackerConnections.IssueTrackerConnections;
       const reviewGuides = yield* PullRequestReviewGuideService.PullRequestReviewGuideService;
       const reviewPackets = yield* ReviewPacketService.ReviewPacketService;
+      const reviewComments = yield* ReviewCommentService.ReviewCommentService;
       const pullRequestSync = yield* PullRequestSyncReactor.PullRequestSyncReactor;
       const deviceService = yield* DeviceService.DeviceService;
       const deviceHostContext =
@@ -3472,6 +3474,16 @@ export const layerWsRpc = (
         [WS_METHODS.reviewGetDiffFileContents]: (input) => review.getDiffFileContents(input),
         [WS_METHODS.reviewPacketsList]: (input) => reviewPackets.list(input),
         [WS_METHODS.reviewPacketsGet]: (input) => reviewPackets.get(input),
+        [WS_METHODS.reviewPacketsSubscribeChanges]: () => reviewPackets.changes,
+        [WS_METHODS.reviewPacketsRecordedDiff]: (input) => reviewComments.recordedDiff(input),
+        // A client session is a person; agents reach comments only through their MCP tools.
+        [WS_METHODS.reviewCommentsList]: (input) => reviewComments.list(input),
+        [WS_METHODS.reviewCommentsCreate]: (input) => reviewComments.create(input),
+        [WS_METHODS.reviewCommentsEdit]: (input) => reviewComments.edit(input),
+        [WS_METHODS.reviewCommentsDelete]: (input) => reviewComments.remove(input),
+        [WS_METHODS.reviewCommentsReply]: (input) => reviewComments.reply(input),
+        [WS_METHODS.reviewCommentsSetResolved]: (input) => reviewComments.setResolved(input),
+        [WS_METHODS.reviewCommentsSend]: (input) => reviewComments.send(input),
         [WS_METHODS.terminalOpen]: (input) =>
           prepareTerminalLaunch(input).pipe(
             Effect.flatMap((launch) =>
@@ -3841,6 +3853,7 @@ export const layer = Layer.unwrap(
     const issueTrackers = yield* IssueTrackerConnections.IssueTrackerConnections;
     const reviewGuides = yield* PullRequestReviewGuideService.PullRequestReviewGuideService;
     const reviewPackets = yield* ReviewPacketService.ReviewPacketService;
+    const reviewComments = yield* ReviewCommentService.ReviewCommentService;
     const peerLinks = yield* PeerLinks.PeerLinks;
     const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
     const peerThreadRelay = yield* PeerThreadRelay.PeerThreadRelay;
@@ -3950,6 +3963,9 @@ export const layer = Layer.unwrap(
                 ),
               ),
               Layer.provide(Layer.succeed(ReviewPacketService.ReviewPacketService, reviewPackets)),
+              Layer.provide(
+                Layer.succeed(ReviewCommentService.ReviewCommentService, reviewComments),
+              ),
               Layer.provide(Layer.succeed(PeerLinks.PeerLinks, peerLinks)),
               Layer.provide(Layer.succeed(PeerLinkRequests.PeerLinkRequests, peerLinkRequests)),
               Layer.provide(Layer.succeed(PeerThreadRelay.PeerThreadRelay, peerThreadRelay)),
