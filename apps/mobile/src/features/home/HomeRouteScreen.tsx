@@ -41,6 +41,10 @@ import { useSelectWorkspaceDetail } from "../layout/workspace/useSelectWorkspace
 import { WorkspaceListEmptyDetail } from "../layout/workspace/WorkspaceListEmptyDetail";
 import { WorkspaceListHeader } from "../layout/workspace/WorkspaceListHeader";
 import { buildHomeListFilterMenuItems, homeListFilterEnvironments } from "./home-list-filter-menu";
+import {
+  useCanOpenProjectCoordinator,
+  useOpenProjectCoordinator,
+} from "../projects/useOpenProjectCoordinator";
 
 export function HomeRouteScreen() {
   const gt = useGT();
@@ -147,8 +151,21 @@ export function HomeRouteScreen() {
       })),
     [projectScopes, threads],
   );
-  const selectedProjectKey =
-    resolveHomeProjectFilterScope(projectScopes, projects, listOptions)?.key ?? null;
+  const selectedProjectScope = resolveHomeProjectFilterScope(projectScopes, projects, listOptions);
+  const selectedProjectKey = selectedProjectScope?.key ?? null;
+  // A grouped project opens the coordinator of its member in the chosen environment, if any.
+  const coordinatorProject =
+    selectedProjectScope?.projectRefs.find(
+      (ref) => selectedEnvironmentId === null || ref.environmentId === selectedEnvironmentId,
+    ) ?? null;
+  const canOpenCoordinator = useCanOpenProjectCoordinator(
+    coordinatorProject?.environmentId ?? null,
+  );
+  const openCoordinator = useOpenProjectCoordinator();
+  const openSelectedCoordinator =
+    coordinatorProject && canOpenCoordinator
+      ? () => void openCoordinator(coordinatorProject)
+      : undefined;
 
   if (layout.usesSplitView && !nativePrimaryColumn) {
     return (
@@ -182,6 +199,7 @@ export function HomeRouteScreen() {
                 selectedProjectKey,
                 onEnvironmentChange: setSelectedEnvironmentId,
                 onProjectChange: setSelectedProjectKey,
+                onOpenCoordinator: openSelectedCoordinator,
               },
               m,
             ),
@@ -206,6 +224,7 @@ export function HomeRouteScreen() {
           onRegenerateThreadTitle={regenerateThreadTitle}
           onEnvironmentChange={setSelectedEnvironmentId}
           onProjectChange={setSelectedProjectKey}
+          onOpenCoordinator={openSelectedCoordinator}
           onOpenSettings={() => selectTab("settings")}
           onSearchQueryChange={setSearchQuery}
           onSelectThread={handleSelectThread}

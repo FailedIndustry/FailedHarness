@@ -32,6 +32,38 @@ import {
   pullRequestStatus,
 } from "./pullRequestStatus";
 import { PullRequestGlyph } from "./pullRequestGlyphs";
+import { reviewStandingNote, type ReviewStandingNote } from "@t3tools/shared/reviewQueueCopy";
+import type { ReviewStanding } from "@t3tools/shared/reviewQueue";
+
+const STANDING_GLYPHS = {
+  "your-move": { icon: "text.bubble", tint: "accent-foreground" },
+  ready: { icon: "checkmark.circle", tint: "accent-adaptive-emerald-600-400" },
+  "with-agent": { icon: "robot", tint: "accent-foreground-muted" },
+  "not-passing": { icon: "exclamationmark.triangle", tint: "accent-danger-foreground" },
+} as const satisfies Record<ReviewStandingNote["standing"], unknown>;
+
+/** Where the change stands in review, for a row whose branch has a packet. */
+function ReviewStandingLine(props: {
+  readonly note: ReviewStandingNote;
+  readonly textClassName: string;
+}) {
+  const glyph = STANDING_GLYPHS[props.note.standing];
+  return (
+    <View className="flex-row items-center gap-1">
+      <SymbolView name={glyph.icon} size={12} tintColorClassName={glyph.tint} />
+      <Text
+        className={cn(
+          "min-w-0 shrink text-xs",
+          props.note.standing === "your-move" ? "font-t3-medium" : null,
+          props.note.standing === "not-passing" ? "text-danger-foreground" : props.textClassName,
+        )}
+        numberOfLines={1}
+      >
+        {props.note.text}
+      </Text>
+    </View>
+  );
+}
 
 /** A label as list rows show it: small, tinted by its color, truncating. */
 export function ListRowLabel(props: {
@@ -57,6 +89,8 @@ export function ListRowLabel(props: {
 export const PullRequestListRow = memo(
   function PullRequestListRow(props: {
     readonly item: EnvironmentPullRequestListEntry;
+    /** Where its change stands in review; equal standings are one object. */
+    readonly review?: ReviewStanding | undefined;
     readonly onSelect: (item: EnvironmentPullRequestListEntry) => void;
     readonly selected: boolean;
     readonly sidebar: boolean;
@@ -85,6 +119,7 @@ export const PullRequestListRow = memo(
     const status = pullRequestStatus(item, m);
     const conflict = pullRequestConflict(item, m);
     const review = pullRequestListReviewStatus(item, m);
+    const standing = props.review === undefined ? null : reviewStandingNote(props.review, m);
     const checksSpoken = item.checksState
       ? {
           passing: gt("checks passing"),
@@ -127,6 +162,7 @@ export const PullRequestListRow = memo(
               conflict ? conflict.label.toLowerCase() : null,
               gt("by {author}", { author: item.author?.login ?? gt("unknown author") }),
               review ? review.accessibleLabel : null,
+              standing ? standing.text : null,
               checksSpoken,
               item.stack
                 ? gt("stack {position} of {size}", {
@@ -217,6 +253,12 @@ export const PullRequestListRow = memo(
               >
                 {item.title}
               </Text>
+              {standing ? (
+                <ReviewStandingLine
+                  note={standing}
+                  textClassName={standing.standing === "your-move" ? foreground : mutedForeground}
+                />
+              ) : null}
               <View className="flex-row items-center gap-1.5">
                 <View className="min-w-0 flex-1 flex-row items-center gap-1">
                   {item.labels.slice(0, 2).map((label) => (
@@ -254,6 +296,7 @@ export const PullRequestListRow = memo(
   },
   (previous, next) =>
     pullRequestListRowsAreEqual(previous.item, next.item) &&
+    previous.review === next.review &&
     previous.selected === next.selected &&
     previous.sidebar === next.sidebar &&
     previous.busy === next.busy &&

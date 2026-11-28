@@ -18,6 +18,9 @@ import { pullRequestTabOffset } from "./pullRequestTabScroll";
 import { guideFocusedRows, type GuideDiffFocus } from "./guide/guideDiffFocus";
 import { PullRequestGuideContent } from "./guide/PullRequestGuideScreen";
 import { useReviewGuidesEnabled } from "./guide/useReviewGuide";
+import { PullRequestPacketContent } from "./packet/PullRequestPacketContent";
+import { packetChangeRef, usePullRequestPacket } from "./packet/usePacketComments";
+import { useChangeComments } from "../../state/reviewComments";
 import { filterPullRequestActivity, type ActivityFilter } from "./pullRequestActivityFilter";
 import { PullRequestActivityFilters } from "./PullRequestActivityFilters";
 import { usePullRequestActivityFilter } from "./usePullRequestActivityFilter";
@@ -431,19 +434,34 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
   const params = useMemo(() => pullRequestParams(route.params), [route.params]);
   usePullRequestEnvironmentFallback(params);
   const connected = usePullRequestConnected(params.environmentId);
-  const [chosenSection, setSection] = useState<"overview" | "activity" | "guide">(() => {
-    const kind = parsePullRequestAnchor(params.navigationUrl)?.kind;
-    return kind === "timeline" || kind === "commits" ? "activity" : "overview";
-  });
+  // Null until something picks a section: a pull request with a review packet opens on it.
+  const [chosenSection, setSection] = useState<"overview" | "activity" | "guide" | "packet" | null>(
+    () => {
+      const kind = parsePullRequestAnchor(params.navigationUrl)?.kind;
+      return kind === "timeline" || kind === "commits" ? "activity" : kind ? "overview" : null;
+    },
+  );
   const requestedSection = useRef(chosenSection);
   const [listAnimationsReady, setListAnimationsReady] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const filesContent = usePullRequestFilesSection(params);
   const guidesEnabled = useReviewGuidesEnabled(params);
+  const reviewPacket = usePullRequestPacket(params);
+  const hasPacket = reviewPacket.packet !== null;
+  const packetAnswered =
+    useChangeComments(
+      EnvironmentId.make(params.environmentId),
+      reviewPacket.change === null ? null : packetChangeRef(reviewPacket.change),
+    ).data?.counts.answered ?? 0;
   // The guide tab goes away while guides are off and overview stands in. The pick is kept, so
   // guides coming back (a settings reload, a reconnect) return to the guide the user chose.
-  const shown = (tab: typeof chosenSection) =>
-    !guidesEnabled && tab === "guide" ? "overview" : tab;
+  // The packet tab is there only while the server holds a packet for this pull request.
+  const shown = (tab: typeof chosenSection) => {
+    const wanted = tab ?? (hasPacket ? "packet" : "overview");
+    return (!guidesEnabled && wanted === "guide") || (!hasPacket && wanted === "packet")
+      ? "overview"
+      : wanted;
+  };
   const section = shown(chosenSection);
   const activity = usePullRequestActivityFilter(parsePullRequestAnchor(params.navigationUrl)?.kind);
   const activityFilter = activity.filter;
@@ -466,6 +484,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
       scrollViews.current[tab] = list;
     };
     return {
+      packet: listRef("packet"),
       overview: listRef("overview"),
       guide: listRef("guide"),
       activity: listRef("activity"),
@@ -610,6 +629,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
       );
       if (signal.aborted) return;
       if (guidesEnabled) refreshGuide();
+      reviewPacket.refresh();
       stack.refresh();
       refreshActivity();
       filesContent.refresh();
@@ -800,6 +820,16 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
       <PullRequestGuideContent params={params} visible={section === "guide"} />
     </View>
   ) : null;
+  const packetBody =
+    reviewPacket.packet !== null && reviewPacket.change !== null ? (
+      <View>
+        <PullRequestPacketContent
+          change={reviewPacket.change}
+          packet={reviewPacket.packet}
+          pullRequestHeadSha={reviewPacket.headSha}
+        />
+      </View>
+    ) : null;
   const activityBody = (
     <View>
       <PullRequestActivityFilters
@@ -828,8 +858,8 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
           menus={verticalControls ? undefined : [pullRequestMenu]}
         />
         <ScreenContent onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}>
-          {(["overview", "guide", "activity"] as const)
-            .filter((tab) => tab !== "guide" || guidesEnabled)
+          {(["packet", "overview", "guide", "activity"] as const)
+            .filter((tab) => (tab !== "guide" || guidesEnabled) && (tab !== "packet" || hasPacket))
             .map((tab) => (
               <View
                 key={tab}
@@ -913,7 +943,9 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                           ? overviewBody
                           : tab === "guide"
                             ? guideBody
-                            : activityBody,
+                            : tab === "packet"
+                              ? packetBody
+                              : activityBody,
                     },
                     // Each tab has its own list, so rows keep their own keys and, unchanged,
                     // their identity: a list re-renders only the rows that changed.
@@ -969,6 +1001,23 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                           {Platform.OS !== "ios" || section === tab ? (
                             <SegmentedControl
                               options={[
+                                ...(hasPacket
+                                  ? [
+                                      {
+                                        value: "packet" as const,
+                                        // Answers from the agent are what wait on the reviewer.
+                                        label: packetAnswered
+                                          ? gt("Packet {count}", {
+                                              count: packetAnswered,
+                                              $context:
+                                                "pull request tab, a review packet, with its answered comments",
+                                            })
+                                          : gt("Packet", {
+                                              $context: "pull request tab, a review packet",
+                                            }),
+                                      },
+                                    ]
+                                  : []),
                                 { value: "overview", label: gt("Overview") },
                                 ...(guidesEnabled
                                   ? [

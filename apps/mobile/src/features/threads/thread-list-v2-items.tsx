@@ -1414,6 +1414,15 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         </Text>
         <View className="flex-row items-center gap-1.5" style={{ minHeight: titleLineHeight }}>
           {props.hasQueuedMessages ? <QueuedMessageIcon selected={selected} /> : null}
+          {thread.coordinator ? (
+            <SymbolView
+              name="antenna.radiowaves.left.and.right"
+              size={11}
+              accessibilityLabel={gt("Coordinator", { $context: "a project's coordinator thread" })}
+              tintColorClassName={rowAppearance.mutedIconTintClassName}
+              type="monochrome"
+            />
+          ) : null}
           {pinnedRow ? (
             <SymbolView
               name="pin"

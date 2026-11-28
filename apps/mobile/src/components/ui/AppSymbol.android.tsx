@@ -111,6 +111,8 @@ import IconPlus from "@tabler/icons-react-native/IconPlus";
 import IconQrcode from "@tabler/icons-react-native/IconQrcode";
 import IconRefresh from "@tabler/icons-react-native/IconRefresh";
 import IconRobot from "@tabler/icons-react-native/IconRobot";
+import IconBuildingBroadcastTower from "@tabler/icons-react-native/IconBuildingBroadcastTower";
+import IconSend from "@tabler/icons-react-native/IconSend";
 import IconSearch from "@tabler/icons-react-native/IconSearch";
 import IconShare from "@tabler/icons-react-native/IconShare";
 import IconServer from "@tabler/icons-react-native/IconServer";
@@ -250,6 +252,8 @@ const ANDROID_ICON_BY_SF_SYMBOL = {
   "person.fill.xmark": IconUserX,
   "person.badge.clock": IconUserQuestion,
   "person.badge.plus": IconUserPlus,
+  "antenna.radiowaves.left.and.right": IconBuildingBroadcastTower,
+  paperplane: IconSend,
   photo: IconPhoto,
   pin: IconPin,
   "pin.slash": IconPinnedOff,

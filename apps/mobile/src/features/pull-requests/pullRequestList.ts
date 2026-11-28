@@ -10,6 +10,12 @@ import {
   type PullRequestListResult,
   type PullRequestListStatsInput,
 } from "@t3tools/contracts";
+import {
+  matchesReviewQueueFilter,
+  rankByMergeReadiness,
+  reviewRowStanding,
+  type ReviewQueuePacket,
+} from "@t3tools/shared/reviewQueue";
 import { msg } from "gt-react-native";
 import type { PullRequestListControls } from "../../persistence/mobile-preferences";
 import { compareTimestamps } from "../../lib/time";
@@ -478,6 +484,28 @@ export function filterPullRequestList<
         ? compareTimestamps(a.updatedAt, b.updatedAt)
         : compareTimestamps(b.updatedAt, a.updatedAt),
   );
+}
+
+/**
+ * The review queue over the filtered rows: Merge readiness ranks by it (a search keeps its own
+ * order), and "Needs me" keeps the changes waiting on the reviewer.
+ */
+export function arrangePullRequestReviewQueue<Entry extends EnvironmentPullRequestListEntry>(
+  entries: readonly Entry[],
+  controls: Pick<PullRequestListControls, "sort" | "packet">,
+  query: string,
+  packetOf: (entry: Entry) => ReviewQueuePacket | null,
+): readonly Entry[] {
+  const ranked =
+    controls.sort === "ready" && query.trim() === ""
+      ? rankByMergeReadiness(entries, packetOf)
+      : entries;
+  const filter = controls.packet;
+  return filter === undefined
+    ? ranked
+    : ranked.filter((entry) =>
+        matchesReviewQueueFilter(reviewRowStanding(entry, packetOf(entry)), filter),
+      );
 }
 
 export function pullRequestListReviewStatus(

@@ -27,6 +27,7 @@ export type MediaVideoPreviewSource = {
             | "attachment"
             | "media-file"
             | "draft-workspace-file"
+            | "review-media"
             | typeof SOURCE_CONTROL_MEDIA_ASSET;
         }
       >;
@@ -65,14 +66,16 @@ export function mediaVideoThumbnailKey(source: MediaVideoPreviewSource): string 
                 source.resource.url,
                 source.resource.repository ?? "",
               ]
-            : [
-                "media-video",
-                "draft-workspace-file",
-                source.environmentId,
-                source.resource.cwd,
-                source.resource.path,
-                source.srcFragment ?? "",
-              ],
+            : source.resource._tag === "review-media"
+              ? ["media-video", "review-media", source.environmentId, source.resource.id]
+              : [
+                  "media-video",
+                  "draft-workspace-file",
+                  source.environmentId,
+                  source.resource.cwd,
+                  source.resource.path,
+                  source.srcFragment ?? "",
+                ],
   );
 }
 

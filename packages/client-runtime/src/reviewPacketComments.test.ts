@@ -16,7 +16,7 @@ import {
   rangeFromTimes,
   regionFromDrag,
   timeAtFraction,
-} from "./packetComments.logic";
+} from "./reviewPacketComments.ts";
 
 const HEAD = "b".repeat(40);
 const BASE = "a".repeat(40);

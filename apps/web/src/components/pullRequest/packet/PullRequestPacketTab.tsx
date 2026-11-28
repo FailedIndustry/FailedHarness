@@ -35,7 +35,7 @@ import {
   PacketCommentsProvider,
   usePacketComments,
 } from "./PacketComments";
-import { anchorClaimTitle, describeAnchor } from "./packetComments.logic";
+import { anchorClaimTitle, describeAnchor } from "@t3tools/client-runtime/review-packet-comments";
 import { PacketMediaRow } from "./PacketMedia";
 import { PacketMediaViewer } from "./PacketMediaViewer";
 import { PacketSendBar, type PacketCheckout } from "./PacketSendBar";
@@ -47,7 +47,7 @@ import {
   shortSha,
   type PacketClaim,
   type PacketMediaEntry,
-} from "./reviewPacket.logic";
+} from "@t3tools/client-runtime/review-packet";
 
 type Finding = ReviewPacket["blockers"][number];
 

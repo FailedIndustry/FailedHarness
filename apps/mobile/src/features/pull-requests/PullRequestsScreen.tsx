@@ -36,7 +36,10 @@ import { pullRequestViewMatches } from "./pullRequestSavedViews";
 import { usePullRequestList } from "./usePullRequestList";
 import { usePullRequestListControls } from "./usePullRequestListControls";
 import { usePullRequestListActions } from "./usePullRequestListActions";
+import { reviewPacketFor, reviewRowStanding } from "@t3tools/shared/reviewQueue";
+import { useReviewPacketIndexes } from "../../state/reviewComments";
 import {
+  arrangePullRequestReviewQueue,
   distinctIgnoringCase,
   filterPullRequestList,
   pullRequestListFacets,
@@ -183,17 +186,29 @@ export function PullRequestsScreen(
   const sidebar = props.sidebar === true || (primaryColumn !== null && paneRole === "sidebar");
   const selectedKey = props.selectedPullRequestKey ?? primaryColumn?.selectedPullRequestKey;
   const connectedKey = connectedTargets.map((target) => target.environmentId).join("\n");
-  const entries = useMemo(
-    () =>
-      filterPullRequestList(
-        result.entries,
-        controls,
-        result.data?.viewers ?? {},
-        query,
-        result.data.localSearchHosts,
-        new Set(connectedKey.split("\n")),
-      ),
-    [result.entries, controls, query, result.data, connectedKey],
+  const reviewPackets = useReviewPacketIndexes(targets.map((target) => target.environmentId));
+  // Rows compare equal by their pull request alone, so a new review answer re-renders the list.
+  const [packetVersion, setPacketVersion] = useState({ source: reviewPackets, version: 0 });
+  if (packetVersion.source !== reviewPackets)
+    setPacketVersion({ source: reviewPackets, version: packetVersion.version + 1 });
+  const packetOf = (entry: EnvironmentPullRequestListEntry) =>
+    reviewPacketFor(reviewPackets.get(entry.environmentId), entry);
+  const entries = arrangePullRequestReviewQueue(
+    useMemo(
+      () =>
+        filterPullRequestList(
+          result.entries,
+          controls,
+          result.data?.viewers ?? {},
+          query,
+          result.data.localSearchHosts,
+          new Set(connectedKey.split("\n")),
+        ),
+      [result.entries, controls, query, result.data, connectedKey],
+    ),
+    controls,
+    query,
+    packetOf,
   );
   const facets = pullRequestListFacets(result.entries);
   const [knownFacets, setKnownFacets] = useState({ environmentId, source: facets, ...facets });
@@ -262,6 +277,7 @@ export function PullRequestsScreen(
   const renderPullRequest = ({ item }: { readonly item: EnvironmentPullRequestListEntry }) => (
     <PullRequestListRow
       item={item}
+      review={reviewRowStanding(item, packetOf(item))}
       onSelect={selectPullRequest}
       getActions={actions}
       onAction={select}
@@ -275,7 +291,7 @@ export function PullRequestsScreen(
       <LegendList
         ref={listRef}
         data={entries}
-        extraData={`${selectedKey}:${busyKey}`}
+        extraData={`${selectedKey}:${busyKey}:${packetVersion.version}`}
         keyExtractor={pullRequestKey}
         itemsAreEqual={pullRequestListRowsAreEqual}
         estimatedItemSize={88}

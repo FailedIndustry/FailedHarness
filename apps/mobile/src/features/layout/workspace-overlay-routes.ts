@@ -5,6 +5,7 @@
 const LISTED_OVERLAY_ROUTES: ReadonlySet<string> = new Set([
   "PullRequestReview",
   "PullRequestInlineComment",
+  "PullRequestPacketComment",
   "ConnectOnboarding",
   "Connections",
   "ConnectionsNew",

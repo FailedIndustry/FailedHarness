@@ -25,6 +25,9 @@ export function assetImageCacheKey(
         ? `t3-media:${JSON.stringify([environmentId, media.fetchUrl])}`
         : undefined;
     }
+    // Addressed by the hash of its bytes.
+    case "review-media":
+      return `t3-review-media:${resource.id}`;
     case "media-file":
     case "workspace-file":
     case "draft-workspace-file":

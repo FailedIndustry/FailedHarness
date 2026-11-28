@@ -250,3 +250,36 @@ export function rankByMergeReadiness<Entry extends ReviewQueueListEntry>(
   }
   return rankReviewQueue(entries, (entry) => reviewStanding(entry, packetOf(entry)), tieBreak);
 }
+
+/** Client-side only: the host knows nothing of review packets. */
+export type ReviewQueueFilter = "needs-me";
+
+const internedStandings = new Map<string, ReviewStanding>();
+
+/**
+ * What a list row says about its packet: nothing without one or once closed. Equal standings are
+ * one object, so memoized rows skip re-rendering when the review signal changes another row.
+ */
+export function reviewRowStanding(
+  pullRequest: ReviewQueuePullRequest,
+  packet: ReviewQueuePacket | null,
+): ReviewStanding | undefined {
+  if (packet === null) return undefined;
+  const standing = reviewStanding(pullRequest, packet);
+  if (standing.standing === "closed") return undefined;
+  const key = JSON.stringify(standing);
+  const held = internedStandings.get(key);
+  if (held !== undefined) return held;
+  internedStandings.set(key, standing);
+  return standing;
+}
+
+/** "Needs me" keeps the changes waiting on the reviewer: their move, or ready to review. */
+export function matchesReviewQueueFilter(
+  standing: ReviewStanding | undefined,
+  filter: ReviewQueueFilter | undefined,
+): boolean {
+  return (
+    filter === undefined || standing?.standing === "your-move" || standing?.standing === "ready"
+  );
+}

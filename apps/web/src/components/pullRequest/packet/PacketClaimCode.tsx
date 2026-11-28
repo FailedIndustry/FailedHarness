@@ -18,8 +18,8 @@ import { Button } from "../../ui/button";
 import { Spinner } from "../../ui/spinner";
 import { GuideFileList } from "../guide/GuideFileList";
 import { CommentThread, usePacketComments } from "./PacketComments";
-import { codeRangeAnchor } from "./packetComments.logic";
-import { shortSha } from "./reviewPacket.logic";
+import { codeRangeAnchor } from "@t3tools/client-runtime/review-packet-comments";
+import { shortSha } from "@t3tools/client-runtime/review-packet";
 
 const NO_FILES: ReadonlyMap<string, FileDiffMetadata> = new Map();
 
