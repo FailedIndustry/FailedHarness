@@ -1289,10 +1289,20 @@ export function PullRequestsPage() {
       data-workspace-titlebar-controls
     >
       {rightPanelState.isOpen ? (
-        <RightPanelMaximizeControl
-          maximized={rightPanelMaximized}
-          onToggle={toggleRightPanelMaximized}
-        />
+        <>
+          <PullRequestQueueNavigation
+            previous={queueNeighbour(queue.previous)}
+            next={queueNeighbour(queue.next)}
+            previousShortcut={shortcutLabelForCommand(keybindings, "thread.previous")}
+            nextShortcut={shortcutLabelForCommand(keybindings, "thread.next")}
+            onPrevious={() => walkQueue(queue.previous)}
+            onNext={() => walkQueue(queue.next)}
+          />
+          <RightPanelMaximizeControl
+            maximized={rightPanelMaximized}
+            onToggle={toggleRightPanelMaximized}
+          />
+        </>
       ) : null}
       {panelToggleControls}
     </div>
@@ -1715,16 +1725,6 @@ export function PullRequestsPage() {
                   .settlePullRequestReveal(rightPanelRef, renderedPullRequestSurface.id, revealUrl);
               }}
               environmentId={panelEnvironmentId}
-              queueNavigation={
-                <PullRequestQueueNavigation
-                  previous={queueNeighbour(queue.previous)}
-                  next={queueNeighbour(queue.next)}
-                  previousShortcut={shortcutLabelForCommand(keybindings, "thread.previous")}
-                  nextShortcut={shortcutLabelForCommand(keybindings, "thread.next")}
-                  onPrevious={() => walkQueue(queue.previous)}
-                  onNext={() => walkQueue(queue.next)}
-                />
-              }
               onGuideShown={onGuideShown}
               onSelectPullRequest={(reference) => {
                 if (rightPanelRef === null) return;

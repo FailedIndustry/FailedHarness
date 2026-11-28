@@ -201,7 +201,7 @@ export function PacketSendBar({ checkout }: { checkout: PacketCheckout | null })
               </span>
             )}
           </span>
-          <span className="ms-auto flex shrink-0 items-center gap-2">
+          <span className="ms-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
             {target.data !== null && chosen === null && checkout !== null ? (
               <Button
                 size="xs"

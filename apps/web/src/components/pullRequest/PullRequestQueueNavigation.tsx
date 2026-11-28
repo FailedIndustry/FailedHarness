@@ -37,7 +37,7 @@ export function PullRequestQueueNavigation({
     </span>
   );
   return (
-    <div className="flex h-7 shrink-0 items-center pl-2.5">
+    <div className="flex shrink-0 items-center">
       <SharedTooltipTrigger
         side="bottom"
         label={tooltip(
@@ -48,13 +48,13 @@ export function PullRequestQueueNavigation({
         )}
         render={
           <Button
-            size="icon-micro"
-            variant="ghost-muted"
+            size="icon-sm"
+            variant="ghost"
             disabled={previous === null}
             aria-label={gt("Previous in queue")}
             onClick={onPrevious}
           >
-            <ChevronUpIcon aria-hidden className="size-3.5" />
+            <ChevronUpIcon aria-hidden className="size-4" />
           </Button>
         }
       />
@@ -68,13 +68,13 @@ export function PullRequestQueueNavigation({
         )}
         render={
           <Button
-            size="icon-micro"
-            variant="ghost-muted"
+            size="icon-sm"
+            variant="ghost"
             disabled={next === null}
             aria-label={gt("Next in queue")}
             onClick={onNext}
           >
-            <ChevronDownIcon aria-hidden className="size-3.5" />
+            <ChevronDownIcon aria-hidden className="size-4" />
           </Button>
         }
       />
