@@ -144,7 +144,7 @@ These cases measure routing decisions with simulated tools, not delivered child 
 
 ## Coordinator cases
 
-`cases/coordinator.ndjson` runs a project's coordinator thread (`setup.coordinator: true`, which adds T3's coordinator instructions) against a mocked `read_review_queue`. It checks that a request starts one worktree thread whose message is the context header and then the owner's words verbatim, that a follow-up to an open change goes to that change's thread, and that a status question is answered from the queue with the owner's move first. The control runs the same request in an ordinary thread, which must not start threads or read the queue. No paid run has been recorded yet.
+`cases/coordinator.ndjson` runs a project's coordinator thread (`setup.coordinator: true`, which adds T3's coordinator instructions) against a mocked `read_review_queue`. It checks that a request starts one worktree thread whose message is the context header and then the owner's words verbatim, that a follow-up to an open change goes to that change's thread, and that a status question is answered from the queue with the owner's move first. `coordinator-verbatim-keeps-provider-choice` checks that a sentence the coordinator also acts on, such as which provider to use, still reaches the new thread. The control runs the same request in an ordinary thread, which must not start threads or read the queue. No paid API run has been recorded yet; the provider-choice fix was measured on Haiku 5.5 through Claude Code itself, with T3's coordinator text appended and these tools served by a stub (5 of 12 samples passed before, 15 of 15 after), which is not an API-replay result.
 
 ## Secrets cases
 
