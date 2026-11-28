@@ -1658,6 +1658,49 @@ describe("AssetAccess", () => {
     }).pipe(Effect.provide(layerTest)),
   );
 
+  it.effect("serves stored review media by hash, cached no longer than its URL and ranged", () =>
+    Effect.gen(function* () {
+      const config = yield* ServerConfig.ServerConfig;
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const hex = "a".repeat(64);
+      yield* fs.makeDirectory(config.reviewMediaDir, { recursive: true });
+      yield* fs.writeFileString(path.join(config.reviewMediaDir, hex), "0123456789");
+      const resource = { _tag: "review-media", id: `sha256:${hex}` } as const;
+      // No stored packet lists it, so the caller found no type for it.
+      expect((yield* issueAssetUrl({ resource }).pipe(Effect.flip))._tag).toBe(
+        "AssetWorkspaceAssetNotFoundError",
+      );
+      yield* TestClock.adjust("1 minute");
+      const first = yield* issueAssetUrl({ resource, reviewMediaType: "video/mp4" });
+      yield* TestClock.adjust("1 minute");
+      const minted = yield* issueAssetUrl({ resource, reviewMediaType: "video/mp4" });
+      expect(minted.relativeUrl).toBe(first.relativeUrl);
+      const suffix = minted.relativeUrl.slice(`${ASSET_ROUTE_PREFIX}/`.length);
+      const separator = suffix.indexOf("/");
+      const serve = (range: string, ifRange?: string) =>
+        resolveAsset(suffix.slice(0, separator), suffix.slice(separator + 1)).pipe(
+          Effect.flatMap((asset) => {
+            if (asset?.kind !== "file") throw new Error("Expected review media");
+            return assetFileResponse(asset, range, ifRange);
+          }),
+          Effect.map(HttpServerResponse.toWeb),
+        );
+      const ranged = yield* serve("bytes=2-4");
+      expect(ranged.status).toBe(206);
+      expect(ranged.headers.get("content-type")).toBe("video/mp4");
+      expect(ranged.headers.get("etag")).toBe(`"${hex}"`);
+      expect(ranged.headers.get("cache-control")).toBe(
+        `private, max-age=${(minted.expiresAt - 120_000) / 1000}, immutable`,
+      );
+      expect(yield* Effect.promise(() => ranged.text())).toBe("234");
+      const resumed = yield* serve("bytes=8-", `"${hex}"`);
+      expect([resumed.status, yield* Effect.promise(() => resumed.text())]).toEqual([206, "89"]);
+      const changed = yield* serve("bytes=8-", `"${"b".repeat(64)}"`);
+      expect(changed.status).toBe(200);
+    }).pipe(Effect.provide(layerTest)),
+  );
+
   it.effect("signs MCP render intent only for inline HTML attachments", () =>
     Effect.gen(function* () {
       const config = yield* ServerConfig.ServerConfig;

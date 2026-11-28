@@ -238,6 +238,7 @@ import * as GitWorkflowService from "./git/GitWorkflowService.ts";
 import { assertCheckoutIdle } from "./git/sharedCheckoutGuard.ts";
 import { refreshPushedPullRequests } from "./git/refreshPushedPullRequests.ts";
 import { linkCreatedPullRequest } from "./git/linkCreatedPullRequest.ts";
+import * as ReviewPacketService from "./review/ReviewPacketService.ts";
 import * as ReviewService from "./review/ReviewService.ts";
 import * as ProjectEnrichmentService from "./project/ProjectEnrichmentService.ts";
 import * as ProjectService from "./project/ProjectService.ts";
@@ -1523,6 +1524,7 @@ export const layerWsRpc = (
       const threadIssues = yield* ThreadIssueService.ThreadIssueService;
       const issueTrackers = yield* IssueTrackerConnections.IssueTrackerConnections;
       const reviewGuides = yield* PullRequestReviewGuideService.PullRequestReviewGuideService;
+      const reviewPackets = yield* ReviewPacketService.ReviewPacketService;
       const pullRequestSync = yield* PullRequestSyncReactor.PullRequestSyncReactor;
       const deviceService = yield* DeviceService.DeviceService;
       const deviceHostContext =
@@ -3249,6 +3251,22 @@ export const layerWsRpc = (
                 workspaceRoot: input.resource.cwd,
               });
             }
+            if (input.resource._tag === "review-media") {
+              const type = yield* reviewPackets
+                .mediaType(input.resource.id)
+                .pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new AssetWorkspaceContextResolutionError({ resource: input.resource, cause }),
+                  ),
+                );
+              return yield* issueAssetUrl({
+                resource: input.resource,
+                ...(Option.isSome(type) && ReviewPacketService.isServableReviewMediaType(type.value)
+                  ? { reviewMediaType: type.value }
+                  : {}),
+              });
+            }
             if (input.resource._tag === "project-favicon") {
               const project = yield* projectStore
                 .findActiveByWorkspaceRoot(input.resource.cwd)
@@ -3452,6 +3470,8 @@ export const layerWsRpc = (
         [WS_METHODS.reviewGetBranchCommits]: (input) => review.getBranchCommits(input),
         [WS_METHODS.reviewGetDiffPreview]: (input) => review.getDiffPreview(input),
         [WS_METHODS.reviewGetDiffFileContents]: (input) => review.getDiffFileContents(input),
+        [WS_METHODS.reviewPacketsList]: (input) => reviewPackets.list(input),
+        [WS_METHODS.reviewPacketsGet]: (input) => reviewPackets.get(input),
         [WS_METHODS.terminalOpen]: (input) =>
           prepareTerminalLaunch(input).pipe(
             Effect.flatMap((launch) =>
@@ -3820,6 +3840,7 @@ export const layer = Layer.unwrap(
     const threadIssues = yield* ThreadIssueService.ThreadIssueService;
     const issueTrackers = yield* IssueTrackerConnections.IssueTrackerConnections;
     const reviewGuides = yield* PullRequestReviewGuideService.PullRequestReviewGuideService;
+    const reviewPackets = yield* ReviewPacketService.ReviewPacketService;
     const peerLinks = yield* PeerLinks.PeerLinks;
     const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
     const peerThreadRelay = yield* PeerThreadRelay.PeerThreadRelay;
@@ -3928,6 +3949,7 @@ export const layer = Layer.unwrap(
                   reviewGuides,
                 ),
               ),
+              Layer.provide(Layer.succeed(ReviewPacketService.ReviewPacketService, reviewPackets)),
               Layer.provide(Layer.succeed(PeerLinks.PeerLinks, peerLinks)),
               Layer.provide(Layer.succeed(PeerLinkRequests.PeerLinkRequests, peerLinkRequests)),
               Layer.provide(Layer.succeed(PeerThreadRelay.PeerThreadRelay, peerThreadRelay)),

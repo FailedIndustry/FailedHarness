@@ -47,6 +47,8 @@ export interface ServerDerivedPaths {
   readonly workflowsDir: string;
   readonly worktreeCheckoutCacheDir: string;
   readonly attachmentsDir: string;
+  /** Review packet media, one file per content hash. */
+  readonly reviewMediaDir: string;
   readonly browserArtifactsDir: string;
   readonly logsDir: string;
   readonly serverTracePath: string;
@@ -167,6 +169,7 @@ export const deriveServerPaths = Effect.fn(function* (
     workflowsDir: join(baseDir, "workflows"),
     worktreeCheckoutCacheDir: join(providerStatusCacheDir, "worktree-checkouts"),
     attachmentsDir,
+    reviewMediaDir: join(stateDir, "review-media"),
     browserArtifactsDir: join(stateDir, "browser-artifacts"),
     logsDir,
     serverTracePath: join(logsDir, "server.trace.ndjson"),
