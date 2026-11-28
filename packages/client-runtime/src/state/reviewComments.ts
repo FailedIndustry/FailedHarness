@@ -72,6 +72,12 @@ export function createReviewCommentEnvironmentAtoms<R, E>(
       tag: WS_METHODS.reviewPacketsRecordedDiff,
       staleTimeMs: Number.POSITIVE_INFINITY,
     }),
+    /** The threads a send would go to, resolved by the server as the send resolves them. */
+    sendTarget: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:review:send-target",
+      tag: WS_METHODS.reviewCommentsSendTarget,
+      refreshTrigger: ({ environmentId }) => changes({ environmentId, input: {} }),
+    }),
     create: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:review:create",
       tag: WS_METHODS.reviewCommentsCreate,

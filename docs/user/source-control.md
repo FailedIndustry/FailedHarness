@@ -58,7 +58,18 @@ Turn on **Settings → Source control & issues → Review guides** to add a **Gu
 
 ### Review packets
 
-When a project's harness hands T3 Code a review packet for a branch (`t3 packet submit <folder>`), that branch's pull request opens on a **Packet** tab on web and desktop: each claim the change makes, its clips and screenshots (click to open full size), whether the playtest saw it, and the code behind it. A packet recorded before the latest push says so in its header, and a claim's code then shows the latest push.
+When a project's harness hands T3 Code a review packet for a branch (`t3 packet submit <folder>`), that branch's pull request opens on a **Packet** tab on web and desktop: each claim the change makes, its clips and screenshots, whether the playtest saw it, and the code behind it as the packet recorded it. A packet recorded before the latest push says so in its header; the **Code** tab shows the latest push.
+
+#### Commenting on a packet
+
+Review right in the Packet tab, then hand everything to the agent at once:
+
+- **A claim**: press **Comment** under it.
+- **A screenshot**: open it and drag a box over what you mean, or tap it to comment on the whole picture.
+- **A clip**: open it and drag along the bar under the video to mark a range, or press **Mark start** and **Mark end** (`I` and `O`) at the playhead. Pause and use **Mark an area** to point at part of the frame too.
+- **Code**: open the claim's code and select lines, as in any diff.
+
+New comments stay **Not sent** until you press **Send to agent** in the bar at the bottom of the tab, which names the thread working on the branch (pick one when several are). Sending never interrupts a running turn; the comments wait behind it. Answers appear under each comment as the agent gives them, and the Packet tab shows how many are waiting on you. Reply to follow up, or **Resolve** when you are done; **Reopen** brings one back. If no thread works on the branch yet, use **Check out in a worktree** from the bar, start that thread, then send. Comments on something a newer packet dropped move to **On earlier revisions** and can still be answered and resolved.
 
 ### Pull request sharing across environments
 

@@ -72,6 +72,7 @@ import type { ReviewCommentContext } from "~/reviewCommentContext";
 import { useProjects, useServerConfigs } from "~/state/entities";
 import { useEnvironments } from "~/state/environments";
 import { useEnvironmentQuery } from "~/state/query";
+import { useChangeComments } from "~/state/reviewComments";
 import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
 import { useLiveRefresh } from "~/hooks/useLiveRefresh";
 import { pullRequestEnvironment, usePullRequestTurnRefresh } from "~/state/pullRequests";
@@ -87,6 +88,7 @@ import { useUiStateStore } from "~/uiStateStore";
 
 import { Alert, AlertAction, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import { toastManager } from "../ui/toast";
 import { MiddleTruncate } from "../ui/middle-truncate";
 import {
@@ -476,19 +478,18 @@ export function PullRequestDetailPanel({
     (packetSource === null
       ? undefined
       : sourceControlClients.parseChangeRequestUrl(packetSource.url)?.link.host);
-  const packetQuery = useEnvironmentQuery(
+  const packetChange =
     packetSource === null || packetHost === undefined
       ? null
-      : pullRequestEnvironment.reviewPacket({
-          environmentId,
-          input: {
-            host: packetHost,
-            repository: packetSource.repository,
-            branch: packetSource.headBranch,
-          },
-        }),
+      : { host: packetHost, repository: packetSource.repository, branch: packetSource.headBranch };
+  const packetQuery = useEnvironmentQuery(
+    packetChange === null
+      ? null
+      : pullRequestEnvironment.reviewPacket({ environmentId, input: packetChange }),
   );
   const packet = packetForPullRequest(packetQuery.data?.packet ?? null, reference.number);
+  const packetComments = useChangeComments(environmentId, packet === null ? null : packetChange);
+  const answeredComments = packetComments.data?.counts.answered ?? 0;
   const reviewGuidesEnabled = useEnvironmentSettings(
     environmentId,
     (settings) => settings.reviewGuidesEnabled,
@@ -1451,6 +1452,24 @@ export function PullRequestDetailPanel({
   const visibleTabs = resolveFilterOptions(
     TABS.filter((item) => isTabAvailable(item.value)),
     resolve,
+  ).map((item) =>
+    item.value === "packet" && answeredComments > 0
+      ? {
+          ...item,
+          badge: (
+            <Badge
+              variant="success"
+              size="sm"
+              aria-label={gt(
+                "{count, plural, one {{count} answered comment waiting on you} other {{count} answered comments waiting on you}}",
+                { count: answeredComments },
+              )}
+            >
+              {answeredComments}
+            </Badge>
+          ),
+        }
+      : item,
   );
   const can = (action: PullRequestAction) =>
     detail?.capabilities.actions.includes(action) === true &&
@@ -2185,14 +2204,24 @@ export function PullRequestDetailPanel({
           />
         ) : detail ? (
           <PullRequestMarkdownContext value={markdownContext}>
-            {mountedTabs.has("packet") && packet !== null ? (
+            {mountedTabs.has("packet") && packet !== null && packetChange !== null ? (
               <div className={cn("absolute inset-0", tab !== "packet" && "invisible")}>
                 <PullRequestPacketTab
                   scrollerRef={scrollerRefs.packet}
                   environmentId={environmentId}
-                  reference={reference}
+                  change={packetChange}
                   packet={packet}
                   pullRequestHeadSha={detail.headSha}
+                  checkout={
+                    handoffSummary
+                      ? {
+                          allowed: canPrepareWorktree && checkoutRoot !== null,
+                          busy: handoff !== null,
+                          run: () => startCheckout("worktree"),
+                        }
+                      : null
+                  }
+                  onOpenCode={detail.capabilities.diff ? () => selectTab("code") : null}
                 />
               </div>
             ) : null}

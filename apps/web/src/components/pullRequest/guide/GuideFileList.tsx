@@ -19,12 +19,15 @@ export function GuideFileList({
   loading,
   commenting,
   loadDiffFiles,
+  renderDiff,
 }: {
   files: ReadonlyArray<{ readonly path: string; readonly note?: ReactNode }>;
   diffs: ReadonlyMap<string, FileDiffMetadata>;
   loading: boolean;
   commenting: ExcerptCommenting | null;
-  loadDiffFiles: FileDiffContentsLoader;
+  loadDiffFiles: FileDiffContentsLoader | null;
+  /** Draws an open file's diff in place of the pull request review diff. */
+  renderDiff?: (path: string, diff: FileDiffMetadata) => ReactNode;
 }) {
   const gt = useGT();
   return (
@@ -57,7 +60,9 @@ export function GuideFileList({
                   ) : null}
                 </CollapsibleTrigger>
                 <CollapsiblePanel animate={false}>
-                  {diff !== undefined ? (
+                  {diff !== undefined && renderDiff !== undefined ? (
+                    renderDiff(file.path, diff)
+                  ) : diff !== undefined && loadDiffFiles !== null ? (
                     <GuideFileDiff
                       path={file.path}
                       file={diff}

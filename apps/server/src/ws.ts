@@ -3484,6 +3484,7 @@ export const layerWsRpc = (
         [WS_METHODS.reviewCommentsReply]: (input) => reviewComments.reply(input),
         [WS_METHODS.reviewCommentsSetResolved]: (input) => reviewComments.setResolved(input),
         [WS_METHODS.reviewCommentsSend]: (input) => reviewComments.send(input),
+        [WS_METHODS.reviewCommentsSendTarget]: (input) => reviewComments.sendTarget(input),
         [WS_METHODS.terminalOpen]: (input) =>
           prepareTerminalLaunch(input).pipe(
             Effect.flatMap((launch) =>

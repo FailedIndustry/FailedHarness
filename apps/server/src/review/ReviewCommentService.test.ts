@@ -536,7 +536,15 @@ describe("ReviewCommentService", () => {
           pullRequest: 18,
         });
 
-        expect(yield* service.send(yield* pending(change.branch))).toMatchObject({
+        const onBranch = yield* pending(change.branch);
+        // The preview names the threads the send then chooses from.
+        expect(yield* service.sendTarget(onBranch)).toMatchObject({
+          candidates: [
+            { threadId: "newer", match: "branch" },
+            { threadId: "older", match: "branch" },
+          ],
+        });
+        expect(yield* service.send(onBranch)).toMatchObject({
           _tag: "sent",
           threadId: "newer",
           candidates: [
@@ -550,6 +558,7 @@ describe("ReviewCommentService", () => {
           candidates: [],
         });
         const orphan = yield* pending("orphan", 99);
+        expect(yield* service.sendTarget(orphan)).toEqual({ candidates: [] });
         expect(yield* service.send(orphan)).toEqual({ _tag: "no-owning-thread", pullRequest: 99 });
         world.threads.push({ id: ThreadId.make("chosen"), projectId, branch: null });
         expect(

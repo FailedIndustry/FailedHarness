@@ -30,6 +30,8 @@ import {
   type ReviewCommentReplyInput,
   type ReviewCommentSendInput,
   type ReviewCommentSendResult,
+  type ReviewCommentSendTargetInput,
+  type ReviewCommentSendTargetResult,
   type ReviewCommentSetResolvedInput,
   type ReviewCommentThread,
   type ReviewCommentThreadCandidate,
@@ -130,6 +132,10 @@ export class ReviewCommentService extends Context.Service<
       ReviewCommentSendResult,
       ReviewCommentRefusedError | ReviewCommentStoreError | ReviewCommentSendError
     >;
+    /** The threads a send without `threadId` would choose from, first one first. */
+    readonly sendTarget: (
+      input: ReviewCommentSendTargetInput,
+    ) => Effect.Effect<ReviewCommentSendTargetResult, ReviewCommentStoreError>;
     /** The open comments on the changes a thread owns, rendered as a send renders them. */
     readonly forThread: (
       threadId: ThreadId,
@@ -598,6 +604,20 @@ const make = Effect.gen(function* () {
       }));
   });
 
+  /** The send and its preview resolve the target here, so the preview names who a send reaches. */
+  const ownersOf = Effect.fn("ReviewCommentService.ownersOf")(function* (key: ChangeKey) {
+    const latest = yield* latestPacket(key).pipe(Effect.mapError(storeError("packet")));
+    const pullRequest = latest?.change.pullRequest ?? null;
+    return { pullRequest, candidates: yield* owningThreads(key, pullRequest) };
+  });
+
+  const sendTarget: ReviewCommentService["Service"]["sendTarget"] = Effect.fn(
+    "ReviewCommentService.sendTarget",
+  )(function* (input) {
+    const { candidates } = yield* ownersOf(keyOf(input));
+    return { candidates };
+  });
+
   const mediaFile = Effect.fn("ReviewCommentService.mediaFile")(function* (
     packet: ReviewPacket | null,
     media: string,
@@ -770,8 +790,6 @@ const make = Effect.gen(function* () {
             (comment) => sendableEntries(comment).length > 0,
           );
           if (waiting.length === 0) return { _tag: "nothing-to-send" as const };
-          const latest = yield* latestPacket(key).pipe(Effect.mapError(storeError("packet")));
-          const pullRequest = latest?.change.pullRequest ?? null;
 
           let target: { readonly threadId: ThreadId; readonly projectId: ProjectId };
           let candidates: ReadonlyArray<ReviewCommentThreadCandidate> = [];
@@ -784,10 +802,11 @@ const make = Effect.gen(function* () {
             }
             target = { threadId: thread.id, projectId: thread.projectId };
           } else {
-            candidates = yield* owningThreads(key, pullRequest);
+            const owners = yield* ownersOf(key);
+            candidates = owners.candidates;
             const first = candidates[0];
             if (first === undefined) {
-              return { _tag: "no-owning-thread" as const, pullRequest };
+              return { _tag: "no-owning-thread" as const, pullRequest: owners.pullRequest };
             }
             target = first;
           }
@@ -999,6 +1018,7 @@ const make = Effect.gen(function* () {
     reply,
     setResolved,
     send,
+    sendTarget,
     forThread,
     answer,
     recordedDiff,

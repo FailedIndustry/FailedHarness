@@ -279,6 +279,16 @@ export const ReviewCommentThreadCandidate = Schema.Struct({
 });
 export type ReviewCommentThreadCandidate = typeof ReviewCommentThreadCandidate.Type;
 
+/** Who a send without `threadId` delivers to, resolved as the send resolves it. */
+export const ReviewCommentSendTargetInput = ReviewPacketChangeRef;
+export type ReviewCommentSendTargetInput = typeof ReviewCommentSendTargetInput.Type;
+
+export const ReviewCommentSendTargetResult = Schema.Struct({
+  /** Most recently active first; a send without `threadId` goes to the first. Empty: none owns it. */
+  candidates: Schema.Array(ReviewCommentThreadCandidate),
+});
+export type ReviewCommentSendTargetResult = typeof ReviewCommentSendTargetResult.Type;
+
 export const ReviewCommentSendResult = Schema.Union([
   Schema.TaggedStruct("sent", {
     threadId: ThreadId,

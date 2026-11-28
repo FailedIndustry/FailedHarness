@@ -251,6 +251,7 @@ const RPC_AGGREGATES = {
   [WS_METHODS.reviewCommentsReply]: "review",
   [WS_METHODS.reviewCommentsSetResolved]: "review",
   [WS_METHODS.reviewCommentsSend]: "review",
+  [WS_METHODS.reviewCommentsSendTarget]: "review",
   [WS_METHODS.terminalOpen]: "terminal",
   [WS_METHODS.terminalAttach]: "terminal",
   [WS_METHODS.terminalObserve]: "terminal",
