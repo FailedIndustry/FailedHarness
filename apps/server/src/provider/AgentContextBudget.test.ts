@@ -92,7 +92,7 @@ const toolHandlerServices = Layer.mergeAll(
   Layer.mock(GitManager)({}),
   Layer.mock(RemoteDelegation)({}),
   Layer.mock(ReviewCommentService)({}),
-  Layer.mock(ReviewPacketService)({}),
+  Layer.mock(ReviewPacketService)({ mediaPath: () => "" }),
   Layer.mock(HarnessService)({}),
   Layer.mock(ReviewQueueService)({}),
   Layer.mock(ScheduledTaskService)({}),

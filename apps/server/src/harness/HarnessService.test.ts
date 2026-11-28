@@ -276,7 +276,11 @@ describe("HarnessService", () => {
               expect((yield* harness.describe({ projectId })).blocked).toBe("policy");
             }),
           {
-            policy: { organization: "Example Corp", limits: { worktreeLayoutCommands: false } },
+            policy: {
+              schemaVersion: 1,
+              organization: "Example Corp",
+              limits: { worktreeLayoutCommands: false },
+            },
           },
         );
       }),
