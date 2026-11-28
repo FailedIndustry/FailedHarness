@@ -316,13 +316,15 @@ function HarnessPlayView({ checkout }: { checkout: HarnessCheckout }) {
             {error}
           </p>
         ) : null}
-        <p className="text-xs text-muted-foreground">
-          <T>
-            Closing this leaves the session running; its thread shows it in the sidebar. The picture
-            comes over WebRTC straight from that machine, so this device needs a network route to
-            it.
-          </T>
-        </p>
+        {ended ? null : (
+          <p className="text-xs text-muted-foreground">
+            <T>
+              Closing this leaves the session running; its thread shows it in the sidebar. The
+              picture comes over WebRTC straight from that machine, so this device needs a network
+              route to it.
+            </T>
+          </p>
+        )}
       </DialogPanel>
     </>
   );
@@ -462,7 +464,7 @@ function SessionStream({
     <div className="flex flex-col gap-2">
       <div
         ref={containerRef}
-        className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-lg border bg-black text-sm text-white/70"
+        className="relative flex aspect-video max-h-[calc(100dvh-28rem)] min-h-48 w-full items-center justify-center overflow-hidden rounded-lg border bg-black text-sm text-white/70"
       >
         {src !== null && canView ? (
           <StreamFrame src={src} title={gt("Harness stream")} />
