@@ -55,6 +55,7 @@ import { ProjectActionsSettings } from "./ProjectActionsSettings";
 import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
 import { ProjectRepositoriesSettings } from "./ProjectRepositoriesSettings";
 import { ProjectWorktreeLayoutSettings } from "./ProjectWorktreeLayoutSettings";
+import { ProjectHarnessSettings } from "./ProjectHarnessSettings";
 import {
   defaultProjectIcon,
   hasDefaultProjectIcon,
@@ -695,6 +696,7 @@ function ProjectDetail({
         <ProjectActionsSettings />
         <ProjectRepositoriesSettings members={group.memberProjects} />
         <ProjectWorktreeLayoutSettings members={group.memberProjects} />
+        <ProjectHarnessSettings members={group.memberProjects} />
         {checkoutChoices}
         <SettingsSection title={gt("Danger")}>
           <SettingsRow

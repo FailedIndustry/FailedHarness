@@ -108,9 +108,11 @@ import * as ToolSearchHandlers from "./toolkits/toolSearch/handlers.ts";
 import { ToolSearchToolkit } from "./toolkits/toolSearch/tools.ts";
 import { PullRequestsToolkit } from "./toolkits/pullRequests/tools.ts";
 import * as IssuesHandlers from "./toolkits/issues/handlers.ts";
+import * as HarnessHandlers from "./toolkits/harness/handlers.ts";
 import * as ReviewCommentsHandlers from "./toolkits/reviewComments/handlers.ts";
 import * as ReviewQueueHandlers from "./toolkits/reviewQueue/handlers.ts";
 import { IssuesToolkit } from "./toolkits/issues/tools.ts";
+import { HarnessToolkit } from "./toolkits/harness/tools.ts";
 import { ReviewCommentsToolkit } from "./toolkits/reviewComments/tools.ts";
 import { ReviewQueueToolkit } from "./toolkits/reviewQueue/tools.ts";
 import * as DeviceHandlers from "./toolkits/device/handlers.ts";
@@ -1559,6 +1561,8 @@ const layerReviewCommentsToolkit = toolkitRegistration(
 
 const layerReviewQueueToolkit = toolkitRegistration(ReviewQueueToolkit, ReviewQueueHandlers.layer);
 
+const layerHarnessToolkit = toolkitRegistration(HarnessToolkit, HarnessHandlers.layer);
+
 const layerDeviceStandardToolkitRegistration = toolkitRegistration(
   DeviceStandardToolkit,
   DeviceHandlers.layerStandard,
@@ -1620,6 +1624,7 @@ export const layerTools = Layer.mergeAll(
   layerIssuesToolkit,
   layerReviewCommentsToolkit,
   layerReviewQueueToolkit,
+  layerHarnessToolkit,
   layerDeviceToolkit,
   layerHtmlToolkit,
   layerMessageToolkit,

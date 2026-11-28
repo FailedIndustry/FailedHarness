@@ -136,6 +136,7 @@ import { InlineButton } from "../ui/button";
 import { Kbd } from "../ui/kbd";
 import { Menu, MenuItem, MenuItemDetail, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { SharedTooltipTrigger } from "../ui/shared-tooltip";
+import { HarnessSessionIndicator } from "../harness/HarnessSessionIndicator";
 import { MiddleTruncate } from "../ui/middle-truncate";
 import { ActivityShimmerOverlay } from "../chat/TimelineRowParts";
 import { observeVisibleAnimation } from "~/lib/visibleAnimation";
@@ -1157,6 +1158,10 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     />
   ) : null;
 
+  const harnessIndicator = (
+    <HarnessSessionIndicator thread={thread} projectTitle={props.project?.title ?? ""} />
+  );
+
   const prBadgeShape = supportsMultiplePullRequests
     ? resolveThreadPullRequestBadge(thread.pullRequests)
     : null;
@@ -1406,6 +1411,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
             )}
             {draftIndicator}
             {coordinatorIcon}
+            {harnessIndicator}
             {title}
             {multiline ? titleLineIcons : null}
             {pinIndicator}
@@ -1765,6 +1771,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
           </div>
           <div className="mt-1 flex min-w-0 items-center gap-1.5">
             {coordinatorIcon}
+            {harnessIndicator}
             {title}
             {isRegeneratingTitle ? (
               <span role="status" className="sr-only">

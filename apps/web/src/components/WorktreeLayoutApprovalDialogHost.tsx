@@ -21,6 +21,7 @@ import { Button } from "./ui/button";
 export const WORKTREE_LAYOUT_COMMAND_LABELS: Record<WorktreeLayoutCommandKind, string> = {
   create: msg("Runs when a worktree thread starts, and when its folder is restored"),
   remove: msg("Runs when a thread's worktree is removed"),
+  harness: msg("Runs when someone plays a branch or an agent runs a playtest"),
 };
 
 /** Asks before a project's own worktree commands run for the first time, or after they change. */
@@ -41,17 +42,35 @@ export function WorktreeLayoutApprovalDialogHost() {
     >
       <AlertDialogPopup className="max-w-2xl">
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            <T>Let this project run its worktree commands?</T>
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            <T>
-              <Var>{request?.projectTitle ?? ""}</Var> sets up worktree threads with its own
-              commands from <code>t3.json</code>. They run on this environment's machine with your
-              permissions, outside any agent sandbox. You are asked again whenever their text
-              changes.
-            </T>
-          </AlertDialogDescription>
+          {request?.variant === "harness" ? (
+            <>
+              <AlertDialogTitle>
+                <T>Let this project run its harness?</T>
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                <T>
+                  <Var>{request.projectTitle}</Var> declares a harness in <code>t3.json</code> that
+                  builds and runs the project for playing and playtests. It runs on this
+                  environment's machine with your permissions, outside any agent sandbox. You are
+                  asked again whenever its path changes.
+                </T>
+              </AlertDialogDescription>
+            </>
+          ) : (
+            <>
+              <AlertDialogTitle>
+                <T>Let this project run its worktree commands?</T>
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                <T>
+                  <Var>{request?.projectTitle ?? ""}</Var> sets up worktree threads with its own
+                  commands from <code>t3.json</code>. They run on this environment's machine with
+                  your permissions, outside any agent sandbox. You are asked again whenever their
+                  text changes.
+                </T>
+              </AlertDialogDescription>
+            </>
+          )}
           <div className="flex flex-col gap-3 pt-2 text-left">
             {request?.commands.map((command) => (
               <div key={command.kind} className="flex min-w-0 flex-col gap-1">

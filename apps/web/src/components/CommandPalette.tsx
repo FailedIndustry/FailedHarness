@@ -263,6 +263,7 @@ import {
   sourceControlHostIcon,
 } from "./CommandPaletteAddProject";
 import { useCommandPaletteThreadActions } from "./CommandPaletteThreadActions";
+import { useHarnessPaletteItem } from "./harness/useHarnessPaletteItem";
 import {
   CommandPaletteThreadQueryContext,
   useCommandPaletteThreadItems,
@@ -792,6 +793,7 @@ function OpenCommandPaletteDialog(props: {
     currentProjectId,
   );
   const currentProjectCwd = currentProject?.workspaceRoot ?? null;
+  const harnessPlayItem = useHarnessPaletteItem(activeThread ?? null);
   const currentThreadActionItems = useCommandPaletteThreadActions({
     threadRef: activeThread ? scopeThreadRef(activeThread.environmentId, activeThread.id) : null,
     projectCwd: currentProjectCwd,
@@ -1629,6 +1631,7 @@ function OpenCommandPaletteDialog(props: {
   }
 
   actionItems.push(...currentThreadActionItems);
+  if (harnessPlayItem) actionItems.push(harnessPlayItem);
 
   actionItems.push({
     kind: "action",

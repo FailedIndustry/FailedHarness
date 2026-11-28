@@ -82,6 +82,7 @@ import { pullRequestCompletionScope } from "./PullRequestMarkdownTextarea";
 import { PullRequestChangeBreakdownStat } from "./PullRequestChangeBreakdownStat";
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
 import { PullRequestThreadLinks } from "./PullRequestThreadLinks";
+import { PullRequestHarnessActions } from "../harness/HarnessActions";
 import { vcsEnvironment } from "~/state/vcs";
 import { RelativeTime } from "~/components/RelativeTime";
 import { useUiStateStore } from "~/uiStateStore";
@@ -1888,99 +1889,107 @@ export function PullRequestDetailPanel({
             data-workspace-scroll-swap
           >
             {detail ? (
-              <PullRequestDetailHeaderBody
-                title={
-                  <PullRequestTitleEditor
-                    environmentId={environmentId}
-                    reference={reference}
-                    pullRequestKey={pullRequestKey}
-                    detail={detail}
-                    canWriteSourceControl={canWriteSourceControl}
-                  />
-                }
-                author={
-                  <PullRequestActorLabel
-                    actor={detail.author}
-                    profileUrl={authorProfileUrl}
-                    threadRef={threadRef}
-                  />
-                }
-                updated={
-                  <span>
-                    <T context="followed by a relative time such as 5m ago or just now">
-                      updated{" "}
-                      <Var>
-                        <RelativeTime timestamp={detail.updatedAt} />
-                      </Var>
-                    </T>
-                  </span>
-                }
-                checkout={
-                  checkoutCommand ? (
-                    <PullRequestCopyableCode
-                      key={checkoutCommand}
-                      value={checkoutCommand}
-                      target={{
-                        target: `${terminology.singular} checkout command`,
-                        unavailableMessage: msg(
-                          "Clipboard API is unavailable while copying {term, select, mr {merge request} cr {change request} other {pull request}} checkout command.",
-                          { term: changeRequestTermKind(terminology) },
-                        ),
-                        failureMessage: msg(
-                          "Failed to copy {term, select, mr {merge request} cr {change request} other {pull request}} checkout command to the clipboard.",
-                          { term: changeRequestTermKind(terminology) },
-                        ),
-                      }}
-                      copyLabel={gt("Copy checkout command")}
-                      copiedLabel={gt("Checkout command copied")}
-                      className="ml-auto font-mono"
-                      tooltipSide="bottom"
-                      onError={reportCheckoutCommandError}
+              <>
+                <PullRequestDetailHeaderBody
+                  title={
+                    <PullRequestTitleEditor
+                      environmentId={environmentId}
+                      reference={reference}
+                      pullRequestKey={pullRequestKey}
+                      detail={detail}
+                      canWriteSourceControl={canWriteSourceControl}
                     />
-                  ) : null
-                }
-                base={
-                  <PullRequestBaseBranch
-                    baseBranch={detail.baseBranch}
-                    freshness={freshness}
-                    stacked={isStackedPullRequest}
-                    pending={actionPending}
-                    onUpdate={(method) => void perform("update-branch", undefined, method)}
-                  />
-                }
-                head={
-                  <PullRequestCopyableCode
-                    key={detail.headBranch}
-                    value={detail.headBranch}
-                    target={{
-                      target: "branch name",
-                      unavailableMessage: msg(
-                        "Clipboard API is unavailable while copying branch name.",
-                      ),
-                      failureMessage: msg("Failed to copy branch name to the clipboard."),
-                    }}
-                    copyLabel={gt(
-                      "Copy {term, select, mr {merge request} cr {change request} other {pull request}} branch",
-                      { term: changeRequestTermKind(terminology) },
-                    )}
-                    copiedLabel={gt("Branch name copied")}
-                  />
-                }
-                files={gt("{count, plural, one {{formatted} file} other {{formatted} files}}", {
-                  count: detail.changedFiles,
-                  formatted: detail.changedFiles.toLocaleString(),
-                })}
-                diffStat={
-                  <PullRequestChangeBreakdownStat
-                    environmentId={environmentId}
-                    reference={reference}
-                    additions={detail.additions}
-                    deletions={detail.deletions}
-                    className="shrink-0 font-mono text-xs"
-                    eager
-                  />
-                }
-              />
+                  }
+                  author={
+                    <PullRequestActorLabel
+                      actor={detail.author}
+                      profileUrl={authorProfileUrl}
+                      threadRef={threadRef}
+                    />
+                  }
+                  updated={
+                    <span>
+                      <T context="followed by a relative time such as 5m ago or just now">
+                        updated{" "}
+                        <Var>
+                          <RelativeTime timestamp={detail.updatedAt} />
+                        </Var>
+                      </T>
+                    </span>
+                  }
+                  checkout={
+                    checkoutCommand ? (
+                      <PullRequestCopyableCode
+                        key={checkoutCommand}
+                        value={checkoutCommand}
+                        target={{
+                          target: `${terminology.singular} checkout command`,
+                          unavailableMessage: msg(
+                            "Clipboard API is unavailable while copying {term, select, mr {merge request} cr {change request} other {pull request}} checkout command.",
+                            { term: changeRequestTermKind(terminology) },
+                          ),
+                          failureMessage: msg(
+                            "Failed to copy {term, select, mr {merge request} cr {change request} other {pull request}} checkout command to the clipboard.",
+                            { term: changeRequestTermKind(terminology) },
+                          ),
+                        }}
+                        copyLabel={gt("Copy checkout command")}
+                        copiedLabel={gt("Checkout command copied")}
+                        className="ml-auto font-mono"
+                        tooltipSide="bottom"
+                        onError={reportCheckoutCommandError}
+                      />
+                    ) : null
+                  }
+                  base={
+                    <PullRequestBaseBranch
+                      baseBranch={detail.baseBranch}
+                      freshness={freshness}
+                      stacked={isStackedPullRequest}
+                      pending={actionPending}
+                      onUpdate={(method) => void perform("update-branch", undefined, method)}
+                    />
+                  }
+                  head={
+                    <PullRequestCopyableCode
+                      key={detail.headBranch}
+                      value={detail.headBranch}
+                      target={{
+                        target: "branch name",
+                        unavailableMessage: msg(
+                          "Clipboard API is unavailable while copying branch name.",
+                        ),
+                        failureMessage: msg("Failed to copy branch name to the clipboard."),
+                      }}
+                      copyLabel={gt(
+                        "Copy {term, select, mr {merge request} cr {change request} other {pull request}} branch",
+                        { term: changeRequestTermKind(terminology) },
+                      )}
+                      copiedLabel={gt("Branch name copied")}
+                    />
+                  }
+                  files={gt("{count, plural, one {{formatted} file} other {{formatted} files}}", {
+                    count: detail.changedFiles,
+                    formatted: detail.changedFiles.toLocaleString(),
+                  })}
+                  diffStat={
+                    <PullRequestChangeBreakdownStat
+                      environmentId={environmentId}
+                      reference={reference}
+                      additions={detail.additions}
+                      deletions={detail.deletions}
+                      className="shrink-0 font-mono text-xs"
+                      eager
+                    />
+                  }
+                />
+                <PullRequestHarnessActions
+                  environmentId={environmentId}
+                  projectId={reference.projectId}
+                  branch={detail.headBranch}
+                  className="-mt-1 px-4 pb-3"
+                />
+              </>
             ) : null}
           </div>
         </div>
