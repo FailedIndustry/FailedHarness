@@ -30,7 +30,8 @@ export function useGuideDiffFiles({
   environmentId: EnvironmentId;
   reference: PullRequestRef;
   headSha: string;
-  wantedPaths: ReadonlyArray<string>;
+  /** Null reads every page, for a caller that filters files it cannot name in advance. */
+  wantedPaths: ReadonlyArray<string> | null;
 }) {
   const key = `${environmentId}:${pullRequestReviewKey(reference)}:${headSha}`;
   const [loaded, setLoaded] = useState<LoadedDiff>({
@@ -43,7 +44,8 @@ export function useGuideDiffFiles({
   const current: LoadedDiff =
     loaded.key === key ? loaded : { key, cursor: null, done: false, files: NO_FILES, folded: null };
   const registry = useContext(RegistryContext);
-  const isMissing = (diff: LoadedDiff) => wantedPaths.some((path) => !diff.files.has(path));
+  const isMissing = (diff: LoadedDiff) =>
+    wantedPaths === null || wantedPaths.some((path) => !diff.files.has(path));
   const pageAtom = (cursor: string | null) =>
     pullRequestEnvironment.diff({
       environmentId,

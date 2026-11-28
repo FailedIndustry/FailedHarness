@@ -13,6 +13,7 @@ import {
   PullRequestChangeBreakdown,
   PullRequestFilesViewedResult,
   PullRequestLinkedThreadsResult,
+  ReviewPacketGetResult,
   type EnvironmentId,
   type PullRequestActor,
   type PullRequestActionInput,
@@ -1067,6 +1068,14 @@ export function createPullRequestEnvironmentAtoms<R, E>(
       ...(onAnswer.reviewGuide === undefined ? {} : { onAnswer: onAnswer.reviewGuide }),
     }),
   );
+  // Not routed: like review guides, each server keeps the packets it was given.
+  const reviewPacket = createEnvironmentRpcQueryAtomFamily(runtime, {
+    label: "environment-data:pull-requests:review-packet",
+    persistence: persistQuery(ReviewPacketGetResult),
+    tag: WS_METHODS.reviewPacketsGet,
+    staleTimeMs: 60_000,
+    refreshTrigger: ({ environmentId }) => refreshes({ environmentId, input: {} }),
+  });
   const reviewerCandidates = writableQueryFamily(
     createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:pull-requests:reviewer-candidates",
@@ -1544,6 +1553,7 @@ export function createPullRequestEnvironmentAtoms<R, E>(
         }),
     }),
     reviewGuide,
+    reviewPacket,
     generateReviewGuide: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:pull-requests:generate-review-guide",
       tag: WS_METHODS.pullRequestsGenerateReviewGuide,

@@ -56,6 +56,10 @@ Turn on **Settings → Source control & issues → Review guides** to add a **Gu
 - On web, select lines in any stop to add review comments or ask an agent about that stop.
 - Agents can also generate guides for multiple PRs when asked. Choose **Rewrite guide** from the PR's **⋯** menu after new pushes.
 
+### Review packets
+
+When a project's harness hands T3 Code a review packet for a branch (`t3 packet submit <folder>`), that branch's pull request opens on a **Packet** tab on web and desktop: each claim the change makes, its clips and screenshots (click to open full size), whether the playtest saw it, and the code behind it. A packet recorded before the latest push says so in its header, and a claim's code then shows the latest push.
+
 ### Pull request sharing across environments
 
 Disabled by default. In **Settings → Environments → Pull request sharing** (**Pull request routing** on mobile), opt in trusted environments to **Read PRs** or **Read and act** so review reads/actions can route through another connected environment signed into the same account on the same host (credentials never leave their machines). Enable on both source and target environments; only grant **Read and act** to environments you control.

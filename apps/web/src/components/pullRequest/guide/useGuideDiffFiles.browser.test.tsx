@@ -21,7 +21,7 @@ vi.mock("~/state/pullRequests", () => ({
 
 import { useGuideDiffFiles } from "./useGuideDiffFiles";
 
-function Probe({ wantedPaths }: { wantedPaths: string[] }) {
+function Probe({ wantedPaths }: { wantedPaths: string[] | null }) {
   const diff = useGuideDiffFiles({
     environmentId: EnvironmentId.make("test"),
     reference: { projectId: ProjectId.make("project"), repository: "owner/repo", number: 1 },
@@ -112,6 +112,31 @@ it("walks more cached pages than React's re-render limit and stops at the reques
   expect(result.loading).toBe(false);
   expect(result.files).toContainEqual(["wanted.ts", "FOUND\n"]);
   expect(pastPageReads).toBe(0);
+});
+
+it("reads every page when no file is named, for a caller that filters them itself", async () => {
+  setup();
+  await using stack = new AsyncDisposableStack();
+  const registry = stack.adopt(AtomRegistry.make(), (value) => value.dispose());
+  state.pages.set(null, Atom.make(AsyncResult.success(page("a.ts", "A", "cursor-1"))));
+  const last = Atom.make<AsyncResult.AsyncResult<PullRequestDiffResult>>(AsyncResult.initial(true));
+  state.pages.set("cursor-1", last);
+  await using screen = await render(
+    <RegistryContext.Provider value={registry}>
+      <Probe wantedPaths={null} />
+    </RegistryContext.Provider>,
+  );
+  const result = () => JSON.parse(screen.container.querySelector("output")!.textContent!);
+  expect(result()).toEqual({ loading: true, files: [["a.ts", "A\n"]] });
+
+  await act(() => registry.set(last, AsyncResult.success(page("b.ts", "B", null))));
+  expect(result()).toEqual({
+    loading: false,
+    files: [
+      ["a.ts", "A\n"],
+      ["b.ts", "B\n"],
+    ],
+  });
 });
 
 it("waits for a later cached page that is still refreshing", async () => {

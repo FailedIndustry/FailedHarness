@@ -176,6 +176,8 @@ import {
 } from "./pullRequestPresentation";
 import { resolveFilterOptions } from "./pullRequestListOptions";
 import { PullRequestGuideTab } from "./PullRequestGuideTab";
+import { PullRequestPacketTab } from "./packet/PullRequestPacketTab";
+import { packetForPullRequest } from "./packet/reviewPacket.logic";
 import { guideRunKey, useGuideRunStore } from "./guide/guideRunStore";
 import { useReviewGuideWriter } from "./guide/useReviewGuideWriter";
 
@@ -272,6 +274,7 @@ const UPDATE_BRANCH_REBASE_FAILURE_HINT = msg(
 );
 
 const TABS: ReadonlyArray<{ value: PullRequestDetailTab; label: string }> = [
+  { value: "packet", label: msg("Packet", { $context: "pull request tab, a review packet" }) },
   { value: "summary", label: msg("Summary", { $context: "pull request tab" }) },
   { value: "guide", label: msg("Guide", { $context: "pull request tab" }) },
   { value: "timeline", label: msg("Timeline", { $context: "pull request tab" }) },
@@ -373,7 +376,7 @@ export function PullRequestDetailPanel({
   onGuideShown,
   revealUrl,
   onRevealSettled,
-  initialTab = "summary",
+  initialTab,
   onTabChange,
 }: {
   environmentId: EnvironmentId;
@@ -403,7 +406,8 @@ export function PullRequestDetailPanel({
   revealUrl?: string | undefined;
   /** Reports the link it was given shown or missing, so a newer link stays pending. */
   onRevealSettled?: ((revealUrl: string) => void) | undefined;
-  initialTab?: PullRequestDetailTab;
+  /** Without one, a pull request with a review packet opens on it, others on Summary. */
+  initialTab?: PullRequestDetailTab | undefined;
   onTabChange?: ((tab: PullRequestDetailTab) => void) | undefined;
 }) {
   const gt = useGT();
@@ -463,9 +467,28 @@ export function PullRequestDetailPanel({
     observedAt,
   } = usePullRequestDetail(environmentId, reference, matchingListEntry);
   const revealAnchor = parsePullRequestAnchor(revealUrl);
-  const [selectedTab, setTab] = useState<PullRequestDetailTab>(
-    () => linkedTab(revealAnchor) ?? initialTab,
+  const [selectedTab, setTab] = useState<PullRequestDetailTab | null>(
+    () => linkedTab(revealAnchor) ?? initialTab ?? null,
   );
+  const packetSource = detail ?? sharedSummary;
+  const packetHost =
+    reference.host ??
+    (packetSource === null
+      ? undefined
+      : sourceControlClients.parseChangeRequestUrl(packetSource.url)?.link.host);
+  const packetQuery = useEnvironmentQuery(
+    packetSource === null || packetHost === undefined
+      ? null
+      : pullRequestEnvironment.reviewPacket({
+          environmentId,
+          input: {
+            host: packetHost,
+            repository: packetSource.repository,
+            branch: packetSource.headBranch,
+          },
+        }),
+  );
+  const packet = packetForPullRequest(packetQuery.data?.packet ?? null, reference.number);
   const reviewGuidesEnabled = useEnvironmentSettings(
     environmentId,
     (settings) => settings.reviewGuidesEnabled,
@@ -474,10 +497,14 @@ export function PullRequestDetailPanel({
   const pageTab = useGuideRunStore((state) =>
     tabOnPage && state.pageDetailTab?.key === guideKey ? state.pageDetailTab.tab : null,
   );
-  const requestedTab = tabOnPage ? (pageTab ?? initialTab) : selectedTab;
+  const defaultTab = packet === null ? "summary" : "packet";
+  const requestedTab = tabOnPage
+    ? (pageTab ?? initialTab ?? defaultTab)
+    : (selectedTab ?? defaultTab);
   const isTabAvailable = (value: PullRequestDetailTab) =>
     (value !== "code" || detail === null || detail.capabilities.diff) &&
-    (value !== "guide" || reviewGuidesEnabled);
+    (value !== "guide" || reviewGuidesEnabled) &&
+    (value !== "packet" || packet !== null);
   // An unavailable tab falls back without overwriting the saved selection.
   const tab = isTabAvailable(requestedTab) ? requestedTab : "summary";
   const selectTab = (next: PullRequestDetailTab) => {
@@ -564,6 +591,9 @@ export function PullRequestDetailPanel({
   const scrollerByTab = useRef<Partial<Record<PullRequestDetailTab, HTMLElement | null>>>({});
   // Fresh ref callbacks would detach and reattach every scroller on each render.
   const [scrollerRefs] = useState(() => ({
+    packet: (node: HTMLElement | null) => {
+      scrollerByTab.current.packet = node;
+    },
     summary: (node: HTMLElement | null) => {
       scrollerByTab.current.summary = node;
     },
@@ -2155,6 +2185,17 @@ export function PullRequestDetailPanel({
           />
         ) : detail ? (
           <PullRequestMarkdownContext value={markdownContext}>
+            {mountedTabs.has("packet") && packet !== null ? (
+              <div className={cn("absolute inset-0", tab !== "packet" && "invisible")}>
+                <PullRequestPacketTab
+                  scrollerRef={scrollerRefs.packet}
+                  environmentId={environmentId}
+                  reference={reference}
+                  packet={packet}
+                  pullRequestHeadSha={detail.headSha}
+                />
+              </div>
+            ) : null}
             {mountedTabs.has("summary") ? (
               <div className={cn("absolute inset-0", tab !== "summary" && "invisible")}>
                 <PullRequestSummaryTab
