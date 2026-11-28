@@ -83,7 +83,7 @@ export const ManagedPolicyLimits = Schema.Struct({
   browserCookieImport: Schema.optionalKey(Schema.Boolean),
   /** `false` turns the preview tunnel off: no client reaches this machine's loopback ports. */
   previewTunnel: Schema.optionalKey(Schema.Boolean),
-  /** `false` turns a project's `worktreeLayout` commands off: none runs, approved or not. */
+  /** `false` turns a project's `worktreeLayout` commands and harness off: none runs, approved or not. */
   worktreeLayoutCommands: Schema.optionalKey(Schema.Boolean),
   providers: Schema.optionalKey(ManagedProviderLimits),
   updates: Schema.optionalKey(ManagedUpdatesPolicy),

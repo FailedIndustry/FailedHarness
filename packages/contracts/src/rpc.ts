@@ -256,6 +256,24 @@ import {
   ReviewPacketRecordedDiffResult,
 } from "./reviewComment.ts";
 import {
+  HarnessDescribeInput,
+  HarnessDescription,
+  HarnessDoctorResult,
+  HarnessError,
+  HarnessMarkInput,
+  HarnessMarkResult,
+  HarnessPacketInput,
+  HarnessPacketOutcome,
+  HarnessProjectInput,
+  HarnessSession,
+  HarnessSessionInput,
+  HarnessSetCachePathInput,
+  HarnessSetupState,
+  HarnessSnapshot,
+  HarnessStartInput,
+  HarnessViewerResult,
+} from "./harness.ts";
+import {
   PullRequestActionInput,
   PullRequestActivity,
   PullRequestChangeBreakdown,
@@ -600,6 +618,16 @@ export const WS_METHODS = {
   reviewCommentsSetResolved: "reviewComments.setResolved",
   reviewCommentsSend: "reviewComments.send",
   reviewCommentsSendTarget: "reviewComments.sendTarget",
+  harnessDescribe: "harness.describe",
+  harnessSubscribe: "harness.subscribe",
+  harnessStart: "harness.start",
+  harnessStop: "harness.stop",
+  harnessMark: "harness.mark",
+  harnessViewer: "harness.viewer",
+  harnessDoctor: "harness.doctor",
+  harnessSetup: "harness.setup",
+  harnessPacket: "harness.packet",
+  harnessSetCachePath: "harness.setCachePath",
 
   terminalOpen: "terminal.open",
   terminalAttach: "terminal.attach",
@@ -2081,6 +2109,70 @@ const WsReviewCommentsSendTargetRpc = Rpc.make(WS_METHODS.reviewCommentsSendTarg
   error: Schema.Union([ReviewCommentStoreError, EnvironmentAuthorizationError]),
 });
 
+const HarnessRpcError = Schema.Union([HarnessError, EnvironmentAuthorizationError]);
+
+const WsHarnessDescribeRpc = Rpc.make(WS_METHODS.harnessDescribe, {
+  payload: HarnessDescribeInput,
+  success: HarnessDescription,
+  error: HarnessRpcError,
+});
+
+// The whole snapshot again whenever a session or a setup changes; it stays small.
+const WsHarnessSubscribeRpc = Rpc.make(WS_METHODS.harnessSubscribe, {
+  payload: Schema.Struct({}),
+  success: HarnessSnapshot,
+  error: EnvironmentAuthorizationError,
+  stream: true,
+});
+
+const WsHarnessStartRpc = Rpc.make(WS_METHODS.harnessStart, {
+  payload: HarnessStartInput,
+  success: HarnessSession,
+  error: HarnessRpcError,
+});
+
+const WsHarnessStopRpc = Rpc.make(WS_METHODS.harnessStop, {
+  payload: HarnessSessionInput,
+  success: HarnessSession,
+  error: HarnessRpcError,
+});
+
+const WsHarnessMarkRpc = Rpc.make(WS_METHODS.harnessMark, {
+  payload: HarnessMarkInput,
+  success: HarnessMarkResult,
+  error: HarnessRpcError,
+});
+
+const WsHarnessViewerRpc = Rpc.make(WS_METHODS.harnessViewer, {
+  payload: HarnessSessionInput,
+  success: HarnessViewerResult,
+  error: HarnessRpcError,
+});
+
+const WsHarnessDoctorRpc = Rpc.make(WS_METHODS.harnessDoctor, {
+  payload: HarnessProjectInput,
+  success: HarnessDoctorResult,
+  error: HarnessRpcError,
+});
+
+const WsHarnessSetupRpc = Rpc.make(WS_METHODS.harnessSetup, {
+  payload: HarnessProjectInput,
+  success: HarnessSetupState,
+  error: HarnessRpcError,
+});
+
+const WsHarnessSetCachePathRpc = Rpc.make(WS_METHODS.harnessSetCachePath, {
+  payload: HarnessSetCachePathInput,
+  success: HarnessDescription,
+  error: HarnessRpcError,
+});
+
+const WsHarnessPacketRpc = Rpc.make(WS_METHODS.harnessPacket, {
+  payload: HarnessPacketInput,
+  success: HarnessPacketOutcome,
+  error: HarnessRpcError,
+});
+
 const WsReviewCommentsSendRpc = Rpc.make(WS_METHODS.reviewCommentsSend, {
   payload: ReviewCommentSendInput,
   success: ReviewCommentSendResult,
@@ -2841,6 +2933,16 @@ export const WsRpcGroup = RpcGroup.make(
   WsReviewCommentsSetResolvedRpc,
   WsReviewCommentsSendRpc,
   WsReviewCommentsSendTargetRpc,
+  WsHarnessDescribeRpc,
+  WsHarnessSubscribeRpc,
+  WsHarnessStartRpc,
+  WsHarnessStopRpc,
+  WsHarnessMarkRpc,
+  WsHarnessViewerRpc,
+  WsHarnessDoctorRpc,
+  WsHarnessSetupRpc,
+  WsHarnessPacketRpc,
+  WsHarnessSetCachePathRpc,
   WsTerminalOpenRpc,
   WsTerminalAttachRpc,
   WsTerminalObserveRpc,

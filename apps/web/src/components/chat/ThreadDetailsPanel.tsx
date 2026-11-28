@@ -24,6 +24,7 @@ import { useState, type ComponentProps } from "react";
 import { ThreadDetailsCard } from "./ThreadDetailsCard";
 import { OpenInPicker } from "./OpenInPicker";
 import { ThreadDetailsSection } from "./ThreadDetailsSection";
+import { ThreadHarnessActions } from "../harness/HarnessActions";
 import { ThreadAutomationsPanel } from "./ThreadAutomationsPanel";
 import { ThreadRelationshipsPanel } from "./ThreadRelationshipsControl";
 import { ThreadRepositorySections } from "./ThreadRepositorySections";
@@ -188,6 +189,8 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
           environment: density === "full" && visible.environment,
           openIn: density !== "essential" && visible.openIn && props.showOpenInPicker,
           scripts: visible.scripts && props.activeProjectScripts !== undefined,
+          // Renders nothing unless the checkout's t3.json declares a harness.
+          harness: props.isServerThread && !props.draftId && props.worktreePath !== null,
           branch: offersGit && folderIsRepo && visible.branch,
           // Without a branch selector, linked pull requests still need somewhere to show.
           pullRequests: !(offersGit && folderIsRepo) && visible.branch,
@@ -203,7 +206,7 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
         return (
           <>
             <div className="group/details-items">
-              {show.environment || show.openIn || show.scripts ? (
+              {show.environment || show.openIn || show.scripts || show.harness ? (
                 <ThreadDetailsSection
                   headingId="thread-details-workspace-heading"
                   title={gt("Workspace")}
@@ -237,6 +240,8 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                         displayMode="panel"
                       />
                     ) : null}
+
+                    {show.harness ? <ThreadHarnessActions threadRef={activeThreadRef} /> : null}
 
                     {show.scripts && props.activeProjectScripts ? (
                       <ProjectScriptsControl

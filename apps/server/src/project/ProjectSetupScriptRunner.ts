@@ -18,6 +18,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
+import * as HarnessService from "../harness/HarnessService.ts";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as TerminalManager from "../terminal/Manager.ts";
@@ -266,6 +267,8 @@ export const make = Effect.gen(function* () {
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const random = yield* SecureRandom.SecureRandom;
   const serviceScope = yield* Effect.scope;
+  // Optional so a runner built without the harness (as in tests) only runs the setup script.
+  const harness = yield* Effect.serviceOption(HarnessService.HarnessService);
 
   const observeTerminalCompletion = Effect.fn("ProjectSetupScriptRunner.observeTerminalCompletion")(
     function* (input: {
@@ -480,6 +483,15 @@ export const make = Effect.gen(function* () {
 
     if (!project) {
       return yield* new ProjectSetupScriptProjectNotFoundError(errorContext);
+    }
+    // The project's harness readies a new checkout alongside its setup script; it only runs
+    // when a person approved it, and callers already left out requests below Full access.
+    if ((input.trigger ?? "setup") === "setup" && Option.isSome(harness)) {
+      yield* harness.value.prepareInBackground({
+        projectId: project.id,
+        worktreePath: input.worktreePath,
+        projectCommands: "permitted",
+      });
     }
 
     const settings = yield* serverSettings.getSettings.pipe(

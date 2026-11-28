@@ -347,6 +347,10 @@
       "types": "./src/state/pullRequests.ts",
       "default": "./src/state/pullRequests.ts"
     },
+    "./state/harness": {
+      "types": "./src/state/harness.ts",
+      "default": "./src/state/harness.ts"
+    },
     "./state/review-comments": {
       "types": "./src/state/reviewComments.ts",
       "default": "./src/state/reviewComments.ts"

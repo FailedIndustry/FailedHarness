@@ -248,6 +248,9 @@ import { closeNonPrivateNetworkConnections, loopbackUrlHostForAddress } from "./
 import * as OrchestrationHttp from "./orchestration-v2/http.ts";
 import * as ProjectHttp from "./project/http.ts";
 import * as ReviewPacketHttp from "./review/http.ts";
+import * as HarnessService from "./harness/HarnessService.ts";
+import * as HarnessStreamProxy from "./harness/HarnessStreamProxy.ts";
+import * as CheckoutRemovalHooks from "./workspace/CheckoutRemovalHooks.ts";
 import * as ReviewCommentService from "./review/ReviewCommentService.ts";
 import * as ReviewQueueService from "./review/ReviewQueueService.ts";
 import * as ReviewPacketService from "./review/ReviewPacketService.ts";
@@ -931,6 +934,7 @@ const layerMakeRoutes = Layer.mergeAll(
     DeviceHubProxy.layer,
     ServerBrowserStream.routeLayer,
     PreviewTunnel.routeLayer,
+    HarnessStreamProxy.routeLayer,
     ServerHttp.layerStaticAndDevRoute,
     Ws.layer,
     speechStreamRouteLayer,
@@ -963,7 +967,13 @@ const layerMakeRoutes = Layer.mergeAll(
       ),
     ),
   ),
-  Layer.provide(ReviewPacketService.layer.pipe(Layer.provide(ReviewPackets.layer))),
+  Layer.provide(
+    Layer.merge(
+      ReviewPacketService.layer.pipe(Layer.provide(ReviewPackets.layer)),
+      // The instance the worktree setup hook also uses (see runtimeLayer), by layer memoization.
+      HarnessService.layerLive,
+    ),
+  ),
   // delegate_task to a linked environment, from /mcp and the follower above.
   Layer.provide(RemoteDelegation.layer.pipe(Layer.provide(ProjectionStoreV2.layer))),
   // Links agents ask for: shown in a thread from /mcp, answered over WebSocket.
@@ -1471,7 +1481,11 @@ const layerMakeServer = Layer.unwrap(
       Layer.provide(Layer.succeed(HostProcess.InvokedAs, invokedAs)),
     );
   }),
-).pipe(Layer.provide(ProcessRunner.layer));
+).pipe(
+  Layer.provide(ProcessRunner.layer),
+  // Outermost, so every checkout remover and the harness built inside share one instance.
+  Layer.provide(CheckoutRemovalHooks.layer),
+);
 
 export const runServer = Layer.launch(
   // For the layers above whose spawner requirement is not met by one of them.

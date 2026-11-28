@@ -73,6 +73,7 @@ import { EnvironmentToolkit } from "../../apps/server/src/mcp/toolkits/environme
 import { HtmlToolkit } from "../../apps/server/src/mcp/toolkits/html/tools.ts";
 import { IssuesToolkit } from "../../apps/server/src/mcp/toolkits/issues/tools.ts";
 import { ReviewQueueToolkit } from "../../apps/server/src/mcp/toolkits/reviewQueue/tools.ts";
+import { HarnessToolkit } from "../../apps/server/src/mcp/toolkits/harness/tools.ts";
 import { MessageToolkit } from "../../apps/server/src/mcp/toolkits/message/tools.ts";
 import { OrchestratorToolkit } from "../../apps/server/src/mcp/toolkits/orchestrator/tools.ts";
 import { PreviewToolkit } from "../../apps/server/src/mcp/toolkits/preview/tools.ts";
@@ -516,6 +517,7 @@ const t3SourceTools: ReadonlyArray<Tool.Any> = [
   PreviewToolkit,
   IssuesToolkit,
   ReviewQueueToolkit,
+  HarnessToolkit,
   DeviceToolkit,
   HtmlToolkit,
   MessageToolkit,

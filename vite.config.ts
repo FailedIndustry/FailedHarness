@@ -412,6 +412,7 @@ export default defineConfig({
           "apps/server/src/server.ts",
           "apps/server/src/ws.test.ts",
           "apps/server/src/workspace/TaskFolders.testkit.ts",
+          "apps/server/src/harness/HarnessService.test.ts",
         ],
         rules: { "t3code/no-layout-command-approval-writes": "off" },
       },

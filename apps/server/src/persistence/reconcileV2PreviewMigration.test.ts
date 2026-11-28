@@ -101,6 +101,8 @@ describe("V2 preview upgrade", () => {
         [119, "WorkflowRunSubject"],
         [120, "ReviewPackets"],
         [121, "ReviewComments"],
+        [122, "HarnessCheckouts"],
+        [123, "HarnessProjects"],
       ]);
       assert.deepStrictEqual(yield* runMigrations(), []);
       assert.deepStrictEqual(yield* sql`SELECT * FROM orchestration_v2_legacy_imports`, imports);
@@ -245,6 +247,8 @@ describe("V2 preview upgrade", () => {
         [119, "WorkflowRunSubject"],
         [120, "ReviewPackets"],
         [121, "ReviewComments"],
+        [122, "HarnessCheckouts"],
+        [123, "HarnessProjects"],
       ]);
     }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
   );

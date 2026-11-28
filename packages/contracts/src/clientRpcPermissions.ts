@@ -60,6 +60,16 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.reviewCommentsReply]: AuthOrchestrationOperateScope,
   [WS_METHODS.reviewCommentsSetResolved]: AuthOrchestrationOperateScope,
   [WS_METHODS.reviewCommentsSend]: AuthOrchestrationOperateScope,
+  // A harness verb runs the project's own approved executable on this machine.
+  [WS_METHODS.harnessStart]: AuthOrchestrationOperateScope,
+  [WS_METHODS.harnessStop]: AuthOrchestrationOperateScope,
+  [WS_METHODS.harnessMark]: AuthOrchestrationOperateScope,
+  [WS_METHODS.harnessViewer]: AuthOrchestrationOperateScope,
+  [WS_METHODS.harnessDoctor]: AuthOrchestrationOperateScope,
+  [WS_METHODS.harnessSetup]: AuthOrchestrationOperateScope,
+  [WS_METHODS.harnessPacket]: AuthOrchestrationOperateScope,
+  // Where the project's harness writes its downloads on this machine.
+  [WS_METHODS.harnessSetCachePath]: AuthOrchestrationOperateScope,
   // Writing a guide runs a model on this environment's providers, which reading one does not.
   [WS_METHODS.pullRequestsGenerateReviewGuide]: AuthOrchestrationOperateScope,
   [WS_METHODS.projectsCreateFromThread]: AuthOrchestrationOperateScope,
