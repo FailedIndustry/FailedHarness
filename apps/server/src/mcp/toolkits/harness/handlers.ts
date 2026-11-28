@@ -89,12 +89,12 @@ const withCommandEnv = Effect.fn("HarnessMcp.withCommandEnv")(function* (
 });
 
 export const layer = McpToolAccess.toLayer(HarnessToolkit, {
-  harness_session_start: McpToolAccess.actsAsCaller(({ net }) =>
+  harness_session_start: McpToolAccess.actsAsCaller(({ net, record }) =>
     Effect.gen(function* () {
       const checkout = yield* callerCheckout;
       const harness = yield* HarnessService.HarnessService;
       const session = yield* harness
-        .start({ ...checkout, by: "agent", net })
+        .start({ ...checkout, by: "agent", net, record })
         .pipe(Effect.mapError(failed));
       return { sessionId: session.id, phase: session.phase, text: yield* withCommandEnv(session) };
     }),

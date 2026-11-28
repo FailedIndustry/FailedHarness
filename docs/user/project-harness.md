@@ -20,12 +20,15 @@ Agents can start sessions only from a thread in Full access, as with the project
 
 Under **Harness** in the project's settings, **Check** lists what the harness needs on this machine and how to install anything missing. **Run setup** installs it. Setup can take a long time; you can leave the page while it runs.
 
+The harness keeps installed tools and downloads in a cache folder shared by the project's checkouts. By default it is a folder in T3 Code's own data. If the harness already installed everything somewhere else before you used T3 Code, set **Harness cache folder** to that folder so setup does not download it all again. **Reset** goes back to T3 Code's folder.
+
 ## Play a branch
 
 On a thread with its own worktree, or on a pull request whose branch has one, choose **Play this branch**. T3 Code readies the checkout, starts a session and shows its stream beside a **Mark** button, a note field and **Stop**.
 
-- **Network.** _Direct_ (the default) is the fastest, but the game, its server and the stream server can make outbound connections, and T3 Code says so while it runs. _Isolated_ allows no outbound network and records the session.
-- **Marks.** A mark notes a moment, or with **last N seconds** what just happened, so it becomes evidence in the packet. Only recorded sessions take marks, so choose Isolated when you want them.
+- **Network.** _Direct_ (the default) is the fastest, but the game, its server and the stream server can make outbound connections, and T3 Code says so while it runs. _Isolated_ allows no outbound network.
+- **Record.** Off by default for Direct and on for Isolated; turn it on or off before you start. Recording costs the game some frames.
+- **Marks.** A mark notes a moment, or with **last N seconds** what just happened, so it becomes evidence in the packet. Only recorded sessions take marks.
 - **Keyboard and pointer.** When T3 Code is served over HTTPS (for example with Tailscale Serve), the stream gets Escape and the clipboard. Over plain HTTP, Escape releases the pointer instead of reaching the game. Use the fullscreen button for keyboard lock.
 - **Network reach.** The video goes straight from the machine to your browser, so your device must be able to reach the machine's address, such as over your tailnet.
 
@@ -39,22 +42,22 @@ On a thread with its own worktree, or on a pull request whose branch has one, ch
 
 T3 Code runs the harness in the checkout with a verb and reads one JSON document from its standard output. The exit code reports the outcome, and a failure prints `{"ok": false, "error": "..."}`.
 
-| Verb                                                                   | Runs                                                                                                                           |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `doctor --json`                                                        | Lists dependencies with their state and instructions.                                                                          |
-| `setup`                                                                | Installs what `doctor` reports missing.                                                                                        |
-| `prepare`                                                              | Readies a checkout. T3 Code runs it when a worktree is created and before each session, so make it quick when nothing changed. |
-| `session start --by person\|agent [--streamed] --net isolated\|direct` | Starts a session and answers with how to attach and the recording path.                                                        |
-| `session status`, `session stop`                                       | Report on and end the running session.                                                                                         |
-| `mark [--last <seconds>] -- <note>`                                    | Marks the running session. Fail if the session is not recorded.                                                                |
-| `packet`                                                               | Assembles the packet folder (`packet.json` and its media).                                                                     |
+| Verb                                                                                         | Runs                                                                                                                           |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `doctor --json`                                                                              | Lists dependencies with their state and instructions.                                                                          |
+| `setup`                                                                                      | Installs what `doctor` reports missing.                                                                                        |
+| `prepare`                                                                                    | Readies a checkout. T3 Code runs it when a worktree is created and before each session, so make it quick when nothing changed. |
+| `session start --by person\|agent [--streamed] --net isolated\|direct --record\|--no-record` | Starts a session and answers with how to attach and the recording path.                                                        |
+| `session status`, `session stop`                                                             | Report on and end the running session.                                                                                         |
+| `mark [--last <seconds>] -- <note>`                                                          | Marks the running session. Fail if the session is not recorded.                                                                |
+| `packet`                                                                                     | Assembles the packet folder (`packet.json` and its media).                                                                     |
 
 A verb that leaves something running, such as a session, must start it in its own process session, so it outlives the verb.
 
 Every verb gets these variables:
 
 - `T3CODE_PROJECT_ROOT` and `T3CODE_WORKTREE_PATH`: the project folder and the checkout.
-- `T3CODE_CACHE_PATH`: one folder per project on this machine, shared by its checkouts, for installed tools and downloads.
+- `T3CODE_CACHE_PATH`: one folder per project on this machine, shared by its checkouts, for installed tools and downloads: the project's **Harness cache folder** when one is set.
 - `T3CODE_OUTPUT_PATH`: one folder per checkout, outside the checkout, where results and recordings go. T3 Code deletes it when the worktree is removed.
 - `T3CODE_SLOT`: a number from 0 to 99, unique among the project's live checkouts, so sessions of several checkouts can run at once. A streamed session listens on port 5900 plus the slot.
 - `T3CODE_STREAM_PATH`: the URL path to serve the stream page under. T3 Code shows the stream from its own origin, signing in to it for you, so the browser never sees the session's password.

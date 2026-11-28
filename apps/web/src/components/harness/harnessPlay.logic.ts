@@ -95,7 +95,11 @@ export function harnessBlockReason(
  * page is reached through that environment's own base URL.
  */
 export function harnessViewerUrl(httpBaseUrl: string | null, path: string): string {
-  return httpBaseUrl === null ? path : environmentEndpointUrl(httpBaseUrl, path);
+  if (httpBaseUrl === null) return path;
+  // A base reached under a path prefix (a relay, a reverse proxy) keeps it: the page derives its
+  // assets and signalling from its own address, so the prefix must stay in front of the path.
+  const prefix = new URL(httpBaseUrl).pathname.replace(/\/+$/, "");
+  return environmentEndpointUrl(httpBaseUrl, `${prefix}${path}`);
 }
 
 /** The most recently updated live thread on a branch with a checkout of its own. */

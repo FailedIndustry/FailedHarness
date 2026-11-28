@@ -38,8 +38,11 @@ const SessionResult = Schema.Struct({
 const HarnessSessionStartTool = Tool.make("harness_session_start", {
   ...shared,
   description:
-    "Start a hidden playtest session of this thread's checkout with the project's harness (t3.json `harness`). `net` defaults to isolated: no outbound network, recorded. Mark with harness_mark; end with harness_session_stop, which stores the review packet. Needs Full access.",
-  parameters: Schema.Struct({ net: Schema.optional(HarnessNetwork) }),
+    "Start a hidden playtest session of this thread's checkout with the project's harness (t3.json `harness`). `net` defaults to isolated (no outbound network); `record` defaults to on there, off for direct, and marks need it. Mark with harness_mark; end with harness_session_stop, which stores the review packet. Needs Full access.",
+  parameters: Schema.Struct({
+    net: Schema.optional(HarnessNetwork),
+    record: Schema.optional(Schema.Boolean),
+  }),
   success: SessionResult,
 })
   .annotate(Tool.Readonly, false)

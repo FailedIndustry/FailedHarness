@@ -61,6 +61,18 @@ export const parseStreamPath = (pathname: string) => {
   return { sessionId, token, rest: rest.length === 0 ? null : rest.join("/") };
 };
 
+/**
+ * Selkies accepts a websocket only from an Origin matching the Host it was sent to, so both name
+ * the loopback target, whatever the browser's were.
+ */
+export const targetHeaders = (
+  target: Pick<HarnessService.HarnessStreamTarget, "origin" | "authorization">,
+) => ({
+  host: new URL(target.origin).host,
+  origin: target.origin,
+  ...(target.authorization === null ? {} : { authorization: target.authorization }),
+});
+
 const forwardHeaders = (
   request: HttpServerRequest.HttpServerRequest,
   target: HarnessService.HarnessStreamTarget,
@@ -70,10 +82,15 @@ const forwardHeaders = (
     if (DROPPED_REQUEST_HEADERS.has(name) || value === undefined) continue;
     headers[name] = value;
   }
-  // The stream server compares Origin with the address it listens on.
-  if (request.headers.origin !== undefined) headers.origin = target.origin;
-  if (target.authorization !== null) headers.authorization = target.authorization;
-  return headers;
+  const fixed = targetHeaders(target);
+  // A request without an Origin keeps none, as the browser sent it.
+  return request.headers.origin === undefined
+    ? {
+        ...headers,
+        host: fixed.host,
+        ...(fixed.authorization ? { authorization: fixed.authorization } : {}),
+      }
+    : { ...headers, ...fixed };
 };
 
 const pumpFrames =
@@ -99,10 +116,7 @@ const proxyWebSocket = Effect.fn("HarnessStreamProxy.proxyWebSocket")(function* 
   const upstream = yield* Socket.makeWebSocket(upstreamUrl, {
     openTimeout: "10 seconds",
     ...(protocols.length > 0 ? { protocols } : {}),
-    headers: {
-      origin: target.origin,
-      ...(target.authorization === null ? {} : { authorization: target.authorization }),
-    },
+    headers: targetHeaders(target),
   }).pipe(Effect.provide(upstreamWebSocketConstructor));
   yield* Effect.scoped(
     Effect.gen(function* () {

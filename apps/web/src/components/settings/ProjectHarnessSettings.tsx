@@ -22,6 +22,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { harnessBlockReason, offersHarness } from "../harness/harnessPlay.logic";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { Spinner } from "../ui/spinner";
 import { toastManager } from "../ui/toast";
 import { SettingsRow, SettingsSection } from "./settingsLayout";
@@ -146,8 +147,8 @@ function CheckoutHarness({
         <T>
           This project's <code>t3.json</code> names a harness: an executable that builds and runs
           the project so you can play a branch and agents can run playtests. It runs on this
-          environment's machine with your permissions, and only as approved here. Each session gets
-          its own slot of ports and an output folder inside the checkout.
+          environment's machine with your permissions, and only as approved here. Each checkout gets
+          its own slot of ports and an output folder outside the checkout.
         </T>
         {showCheckout ? (
           <span className="mt-1 block truncate">
@@ -203,6 +204,14 @@ function CheckoutHarness({
           {declared}
         </pre>
       </SettingsRow>
+      <HarnessCacheFolder
+        environmentId={environmentId}
+        projectId={projectId}
+        cachePath={description.cachePath}
+        defaultCachePath={description.defaultCachePath}
+        disabled={!isConnected}
+        onSaved={describe.refresh}
+      />
       <SettingsRow
         title={gt("Dependencies")}
         description={
@@ -280,5 +289,92 @@ function CheckoutHarness({
         </p>
       ) : null}
     </SettingsSection>
+  );
+}
+
+/**
+ * Where the harness keeps installed tools and downloads for this project. A folder it already
+ * filled outside T3 Code saves a fresh download; reset goes back to T3 Code's own folder.
+ */
+function HarnessCacheFolder(props: {
+  environmentId: SidebarProjectGroupMember["environmentId"];
+  projectId: SidebarProjectGroupMember["id"];
+  cachePath: string | null;
+  defaultCachePath: string;
+  disabled: boolean;
+  onSaved: () => void;
+}) {
+  const gt = useGT();
+  const canSave = useAtomValue(harnessEnvironment.setCachePath.permissionAtom(props.environmentId));
+  const save = useAtomCommand(harnessEnvironment.setCachePath, { reportFailure: false });
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const value = draft ?? props.cachePath ?? "";
+
+  const apply = async (cachePath: string | null) => {
+    setSaving(true);
+    const result = await save({
+      environmentId: props.environmentId,
+      input: { projectId: props.projectId, cachePath },
+    });
+    setSaving(false);
+    if (result._tag === "Failure") {
+      toastManager.add({
+        type: "error",
+        title: gt("Could not save the harness cache folder"),
+        description: thrownErrorMessage(squashAtomCommandFailure(result), m) ?? undefined,
+      });
+      return;
+    }
+    setDraft(null);
+    props.onSaved();
+  };
+
+  const trimmed = value.trim();
+  const unchanged = trimmed === (props.cachePath ?? "");
+  return (
+    <SettingsRow
+      title={gt("Harness cache folder")}
+      description={
+        props.cachePath === null
+          ? gt("Installed tools and downloads go to T3 Code's own folder: {path}", {
+              path: props.defaultCachePath,
+            })
+          : gt(
+              "Installed tools and downloads go to this folder, shared by the project's checkouts.",
+            )
+      }
+      control={
+        <span className="flex items-center gap-1.5">
+          <Button
+            size="xs"
+            variant="outline"
+            disabled={!canSave || props.disabled || saving || unchanged || trimmed === ""}
+            onClick={() => void apply(trimmed)}
+          >
+            {saving ? <Spinner /> : null}
+            <T>Save</T>
+          </Button>
+          <Button
+            size="xs"
+            variant="ghost"
+            disabled={!canSave || props.disabled || saving || props.cachePath === null}
+            onClick={() => void apply(null)}
+          >
+            <T context="verb, goes back to the default folder">Reset</T>
+          </Button>
+        </span>
+      }
+    >
+      <Input
+        className="mb-2"
+        size="sm"
+        value={value}
+        placeholder={props.defaultCachePath}
+        disabled={!canSave || props.disabled || saving}
+        aria-label={gt("Harness cache folder")}
+        onChange={(event) => setDraft(event.target.value)}
+      />
+    </SettingsRow>
   );
 }

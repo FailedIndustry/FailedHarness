@@ -14,6 +14,8 @@ const description = (overrides: Partial<HarnessDescription> = {}): HarnessDescri
   approved: true,
   blocked: null,
   policyBy: null,
+  cachePath: null,
+  defaultCachePath: "/state/harness/cache/project",
   ...overrides,
 });
 
@@ -83,6 +85,15 @@ describe("harnessViewerUrl", () => {
     expect(harnessViewerUrl(null, "/api/harness/stream/s1/token/")).toBe(
       "/api/harness/stream/s1/token/",
     );
+  });
+
+  it("keeps a base URL's path prefix, as through a relay", () => {
+    expect(
+      harnessViewerUrl("https://relay.example.com/env/abc123/", "/api/harness/stream/s1/token/"),
+    ).toBe("https://relay.example.com/env/abc123/api/harness/stream/s1/token/");
+    expect(
+      harnessViewerUrl("https://relay.example.com/env/abc123", "/api/harness/stream/s1/token/"),
+    ).toBe("https://relay.example.com/env/abc123/api/harness/stream/s1/token/");
   });
 });
 

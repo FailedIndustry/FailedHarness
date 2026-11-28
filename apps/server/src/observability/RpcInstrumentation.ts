@@ -262,6 +262,7 @@ const RPC_AGGREGATES = {
   [WS_METHODS.harnessDoctor]: "workspace",
   [WS_METHODS.harnessSetup]: "workspace",
   [WS_METHODS.harnessPacket]: "workspace",
+  [WS_METHODS.harnessSetCachePath]: "workspace",
   [WS_METHODS.terminalOpen]: "terminal",
   [WS_METHODS.terminalAttach]: "terminal",
   [WS_METHODS.terminalObserve]: "terminal",

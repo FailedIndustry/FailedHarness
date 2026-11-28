@@ -267,6 +267,7 @@ import {
   HarnessProjectInput,
   HarnessSession,
   HarnessSessionInput,
+  HarnessSetCachePathInput,
   HarnessSetupState,
   HarnessSnapshot,
   HarnessStartInput,
@@ -626,6 +627,7 @@ export const WS_METHODS = {
   harnessDoctor: "harness.doctor",
   harnessSetup: "harness.setup",
   harnessPacket: "harness.packet",
+  harnessSetCachePath: "harness.setCachePath",
 
   terminalOpen: "terminal.open",
   terminalAttach: "terminal.attach",
@@ -2159,6 +2161,12 @@ const WsHarnessSetupRpc = Rpc.make(WS_METHODS.harnessSetup, {
   error: HarnessRpcError,
 });
 
+const WsHarnessSetCachePathRpc = Rpc.make(WS_METHODS.harnessSetCachePath, {
+  payload: HarnessSetCachePathInput,
+  success: HarnessDescription,
+  error: HarnessRpcError,
+});
+
 const WsHarnessPacketRpc = Rpc.make(WS_METHODS.harnessPacket, {
   payload: HarnessPacketInput,
   success: HarnessPacketOutcome,
@@ -2934,6 +2942,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsHarnessDoctorRpc,
   WsHarnessSetupRpc,
   WsHarnessPacketRpc,
+  WsHarnessSetCachePathRpc,
   WsTerminalOpenRpc,
   WsTerminalAttachRpc,
   WsTerminalObserveRpc,

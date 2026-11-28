@@ -39,6 +39,7 @@ import { Input } from "../ui/input";
 import { Radio, RadioGroup } from "../ui/radio-group";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Spinner } from "../ui/spinner";
+import { Switch } from "../ui/switch";
 import {
   harnessViewerUrl,
   MARK_LAST_SECONDS_CHOICES,
@@ -103,6 +104,9 @@ function HarnessPlayView({ checkout }: { checkout: HarnessCheckout }) {
   const [sessionId, setSessionId] = useState<HarnessSessionId | null>(null);
   const [started, setStarted] = useState<HarnessSession | null>(null);
   const [net, setNet] = useState<HarnessNetwork>("direct");
+  // Null follows the network: recorded when isolated, not when direct.
+  const [recordChoice, setRecordChoice] = useState<boolean | null>(null);
+  const record = recordChoice ?? net === "isolated";
   const [busy, setBusy] = useState<"start" | "stop" | "packet" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [collected, setCollected] = useState<HarnessPacketOutcome | null>(null);
@@ -138,6 +142,7 @@ function HarnessPlayView({ checkout }: { checkout: HarnessCheckout }) {
         worktreePath,
         by: "person",
         net,
+        record,
         ...(checkout.threadId === null ? {} : { threadId: checkout.threadId }),
       },
     });
@@ -211,7 +216,12 @@ function HarnessPlayView({ checkout }: { checkout: HarnessCheckout }) {
         {session === null ? (
           <StartForm
             net={net}
-            onNetChange={setNet}
+            onNetChange={(next) => {
+              setNet(next);
+              setRecordChoice(null);
+            }}
+            record={record}
+            onRecordChange={setRecordChoice}
             disabled={!canOperate || busy !== null}
             starting={busy === "start"}
             canOperate={canOperate}
@@ -321,6 +331,8 @@ function HarnessPlayView({ checkout }: { checkout: HarnessCheckout }) {
 function StartForm(props: {
   net: HarnessNetwork;
   onNetChange: (net: HarnessNetwork) => void;
+  record: boolean;
+  onRecordChange: (record: boolean) => void;
   disabled: boolean;
   starting: boolean;
   canOperate: boolean;
@@ -344,7 +356,10 @@ function StartForm(props: {
               <T>Direct</T>
             </span>
             <span className="text-xs text-muted-foreground">
-              <T>The game and the stream can reach the internet. Not recorded, so marks are off.</T>
+              <T>
+                The game and the stream can reach the internet. Fastest; not recorded unless you
+                turn recording on.
+              </T>
             </span>
           </span>
         </label>
@@ -355,11 +370,27 @@ function StartForm(props: {
               <T>Isolated</T>
             </span>
             <span className="text-xs text-muted-foreground">
-              <T>No outbound network. Recorded, so marks work. A bit slower to start.</T>
+              <T>No outbound network. Recorded unless you turn recording off. A bit slower.</T>
             </span>
           </span>
         </label>
       </RadioGroup>
+      <label className="flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 text-sm">
+        <Switch
+          checked={props.record}
+          disabled={props.disabled}
+          onCheckedChange={(checked) => props.onRecordChange(Boolean(checked))}
+          aria-label={gt("Record the session")}
+        />
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-medium">
+            <T>Record</T>
+          </span>
+          <span className="text-xs text-muted-foreground">
+            <T>Marks need a recording. Recording costs the game some frames.</T>
+          </span>
+        </span>
+      </label>
       <div className="flex flex-wrap items-center gap-3">
         <Button disabled={props.disabled} onClick={props.onStart}>
           {props.starting ? <Spinner /> : null}
@@ -577,8 +608,8 @@ function MarkForm({
       {session.recorded ? null : (
         <p className="text-xs text-muted-foreground">
           <T>
-            Marks need a recording, and this session is not recorded. Start an Isolated session to
-            mark what you see.
+            Marks need a recording, and this session is not recorded. Start a session with Record on
+            to mark what you see.
           </T>
         </p>
       )}

@@ -3438,40 +3438,31 @@ export const layerWsRpc = (
             Effect.tap(() => refreshGitStatus(input.cwd)),
           ),
         [WS_METHODS.vcsRemoveWorktree]: (input) =>
-          // The harness session there is stopped while its executable still exists.
-          harness.releaseCheckout(input.path).pipe(
-            Effect.andThen(
-              // A thread's worktree may be a task folder: its repositories' worktrees go with it.
-              taskFolders
-                .removeIfTaskFolder({
-                  path: input.path,
-                  force: input.force === true,
-                  projectCommands,
-                })
-                .pipe(
-                  Effect.mapError(
-                    (cause) =>
-                      new GitCommandError({
-                        operation: "TaskFolders.remove",
-                        command: "git worktree remove",
-                        cwd: input.cwd,
-                        detail: cause.detail,
-                      }),
-                  ),
-                  Effect.flatMap((removed) =>
-                    removed ? Effect.void : gitWorkflow.removeWorktree(input),
-                  ),
-                  // No project-root refresh here: the client awaits vcs.refreshStatus right after, and a
-                  // second refresh would queue behind this one and reread an unchanged repository.
-                  // Subscribers of the removed checkout learn it is no longer a repository.
-                  Effect.tap(() =>
-                    vcsStatusBroadcaster
-                      .refreshLocalStatus(input.path)
-                      .pipe(Effect.ignoreCause({ log: true }), Effect.forkDetach, Effect.asVoid),
-                  ),
-                ),
+          // A thread's worktree may be a task folder: its repositories' worktrees go with it.
+          taskFolders
+            .removeIfTaskFolder({ path: input.path, force: input.force === true, projectCommands })
+            .pipe(
+              Effect.mapError(
+                (cause) =>
+                  new GitCommandError({
+                    operation: "TaskFolders.remove",
+                    command: "git worktree remove",
+                    cwd: input.cwd,
+                    detail: cause.detail,
+                  }),
+              ),
+              Effect.flatMap((removed) =>
+                removed ? Effect.void : gitWorkflow.removeWorktree(input),
+              ),
+              // No project-root refresh here: the client awaits vcs.refreshStatus right after, and a
+              // second refresh would queue behind this one and reread an unchanged repository.
+              // Subscribers of the removed checkout learn it is no longer a repository.
+              Effect.tap(() =>
+                vcsStatusBroadcaster
+                  .refreshLocalStatus(input.path)
+                  .pipe(Effect.ignoreCause({ log: true }), Effect.forkDetach, Effect.asVoid),
+              ),
             ),
-          ),
         [WS_METHODS.vcsCreateRef]: (input) =>
           (input.switchRef
             ? assertCheckoutIdle("GitWorkflowService.createRef", input.cwd)
@@ -3537,6 +3528,7 @@ export const layerWsRpc = (
           }),
         [WS_METHODS.harnessDoctor]: (input) => harness.doctor({ ...input, projectCommands }),
         [WS_METHODS.harnessSetup]: (input) => harness.setup({ ...input, projectCommands }),
+        [WS_METHODS.harnessSetCachePath]: (input) => harness.setCachePath(input),
         [WS_METHODS.harnessPacket]: (input) =>
           collectPacket({ ...input, projectCommands }).pipe(
             Effect.provideService(HarnessService.HarnessService, harness),

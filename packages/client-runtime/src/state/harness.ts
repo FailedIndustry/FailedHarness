@@ -60,6 +60,10 @@ export function createHarnessEnvironmentAtoms<R, E>(
       label: "environment-data:harness:setup",
       tag: WS_METHODS.harnessSetup,
     }),
+    setCachePath: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:harness:set-cache-path",
+      tag: WS_METHODS.harnessSetCachePath,
+    }),
     packet: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:harness:packet",
       tag: WS_METHODS.harnessPacket,

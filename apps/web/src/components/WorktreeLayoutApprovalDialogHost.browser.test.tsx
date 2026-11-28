@@ -17,7 +17,14 @@ const projectId = ProjectId.make("project:layout");
 const state = vi.hoisted(() => ({
   commands: [] as WorktreeLayoutCommand[],
   approved: [] as unknown[],
-  harness: { declared: "tools/harness", approved: false, blocked: "not-approved", policyBy: null },
+  harness: {
+    declared: "tools/harness",
+    approved: false,
+    blocked: "not-approved",
+    policyBy: null,
+    cachePath: null,
+    defaultCachePath: "/state/harness/cache/project",
+  },
 }));
 
 vi.mock(import("@t3tools/client-runtime/state/runtime"), async (original) => ({

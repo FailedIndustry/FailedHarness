@@ -53,6 +53,7 @@ import {
 } from "../vcs/removeEmptyDirectory.ts";
 import { resolveWorktreesDirectory } from "../worktreesDirectory.ts";
 import { isWithinRoot } from "./KnownWorkspaces.ts";
+import * as CheckoutRemovalHooks from "./CheckoutRemovalHooks.ts";
 import * as LayoutCommandApprovals from "./LayoutCommandApprovals.ts";
 import * as TaskFolderStore from "./TaskFolderStore.ts";
 import { projectFolders, parseGitmodulesPaths } from "./WorkspaceFolders.ts";
@@ -332,6 +333,7 @@ const make = Effect.gen(function* () {
   const projections = yield* ProjectionStore.ProjectionStoreV2;
   const approvals = yield* LayoutCommandApprovals.LayoutCommandApprovals;
   const managedPolicy = yield* ManagedPolicy.ManagedPolicy;
+  const beforeCheckoutRemoved = yield* CheckoutRemovalHooks.beforeRemoveFrom;
   const layoutCommandsOffBy = ManagedPolicy.deniedBy(managedPolicy, "worktreeLayoutCommands");
   // Set when the administrator's limit leaves no thread in Full access: "Example Corp limits…".
   const fullAccessOff = managedRuntimeModeDenial(managedPolicy.summary, "full-access");
@@ -886,6 +888,8 @@ const make = Effect.gen(function* () {
     /** False when the folder's layout command never started: nothing to tear down. */
     laidOut = !neverLaidOut.has(taskFolder.root),
   ) {
+    // The project's own remove command may delete the checkout before Git does.
+    yield* beforeCheckoutRemoved(taskFolder.projectPath);
     const removed: string[] = [];
     const kept: Array<{ path: string; reason: string }> = [];
     let remaining = taskFolder.repositories;

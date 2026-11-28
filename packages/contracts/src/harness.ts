@@ -202,6 +202,9 @@ export const HarnessDescription = Schema.Struct({
   blocked: Schema.NullOr(HarnessBlock),
   /** The organization whose policy turns project commands off, when `blocked` is `policy`. */
   policyBy: Schema.NullOr(Schema.String),
+  /** The project's own cache folder for the harness; null uses `defaultCachePath`. */
+  cachePath: Schema.NullOr(Schema.String),
+  defaultCachePath: Schema.String,
 });
 export type HarnessDescription = typeof HarnessDescription.Type;
 
@@ -211,6 +214,8 @@ export const HarnessStartInput = Schema.Struct({
   threadId: Schema.optional(ThreadId),
   by: HarnessSessionBy,
   net: Schema.optional(HarnessNetwork),
+  /** Record the session, so it takes marks. Defaults to on for isolated, off for direct. */
+  record: Schema.optional(Schema.Boolean),
 });
 export type HarnessStartInput = typeof HarnessStartInput.Type;
 
@@ -248,6 +253,17 @@ export const HarnessDoctorResult = Schema.Struct({
 });
 export type HarnessDoctorResult = typeof HarnessDoctorResult.Type;
 
+const HARNESS_CACHE_PATH_MAX_LENGTH = 1024;
+
+export const HarnessSetCachePathInput = Schema.Struct({
+  projectId: ProjectId,
+  /** An absolute folder (`~` allowed); null goes back to T3 Code's own. */
+  cachePath: Schema.NullOr(
+    TrimmedNonEmptyString.check(Schema.isMaxLength(HARNESS_CACHE_PATH_MAX_LENGTH)),
+  ),
+});
+export type HarnessSetCachePathInput = typeof HarnessSetCachePathInput.Type;
+
 export const HarnessPacketInput = Schema.Struct({
   projectId: ProjectId,
   worktreePath: TrimmedNonEmptyString,
@@ -263,6 +279,7 @@ export class HarnessError extends Schema.TaggedError<HarnessError>()("HarnessErr
     "slots-exhausted",
     "verb-failed",
     "invalid-output",
+    "invalid-cache-path",
     "unavailable",
   ]),
   detail: Schema.String,

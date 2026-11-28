@@ -53,6 +53,7 @@ import {
   windowsLongPathConfigEnv,
 } from "./GitVcsDriverCore.ts";
 import { autoPullProjects } from "../serverRuntimeStartup.ts";
+import * as CheckoutRemovalHooks from "../workspace/CheckoutRemovalHooks.ts";
 import * as GitVcsDriver from "./GitVcsDriver.ts";
 import { VcsAutomaticFetchInterval } from "./VcsAutomaticFetchInterval.ts";
 import { gitConfigEnv } from "./VcsProcess.ts";
@@ -8831,6 +8832,39 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
           yield* fileSystem.readFileString(pathService.join(worktreePath, "notes.txt")),
           "draft\n",
         );
+      }),
+    );
+
+    it.effect("runs the checkout removal hooks while the worktree's files still exist", () =>
+      Effect.gen(function* () {
+        const cwd = yield* makeTmpDir();
+        const { initialBranch } = yield* initRepoWithCommit(cwd);
+        const pathService = yield* Path.Path;
+        const fileSystem = yield* FileSystem.FileSystem;
+        const worktreePath = pathService.join(yield* makeTmpDir("git-worktrees-"), "played");
+        const seen: Array<{ readonly path: string; readonly existed: boolean }> = [];
+        const hooks = yield* CheckoutRemovalHooks.CheckoutRemovalHooks.pipe(
+          Effect.provide(CheckoutRemovalHooks.layer),
+        );
+        yield* hooks.register((checkout) =>
+          fileSystem.exists(checkout).pipe(
+            Effect.orElseSucceed(() => false),
+            Effect.map((existed) => void seen.push({ path: checkout, existed })),
+          ),
+        );
+        const driver = yield* makeGitVcsDriverCore().pipe(
+          Effect.provideService(CheckoutRemovalHooks.CheckoutRemovalHooks, hooks),
+          Effect.provide(layerServerConfig),
+        );
+        yield* driver.createWorktree({
+          cwd,
+          path: worktreePath,
+          refName: initialBranch,
+          newRefName: "feature/played",
+        });
+        yield* driver.removeWorktree({ cwd, path: worktreePath });
+        assert.deepEqual(seen, [{ path: worktreePath, existed: true }]);
+        assert.isFalse(yield* fileSystem.exists(worktreePath));
       }),
     );
 

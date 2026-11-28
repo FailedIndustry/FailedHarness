@@ -79,6 +79,8 @@ describe("harness stream proxy", () => {
     expect(requests[0]!.headers.authorization).toBe("Basic cGxheWVyOnNlY3JldA==");
     expect(requests[0]!.headers.cookie).toBeUndefined();
     expect(requests[0]!.headers.origin).toBe("http://127.0.0.1:5983");
+    // Selkies refuses a websocket whose Origin does not match its Host.
+    expect(requests[0]!.headers.host).toBe("127.0.0.1:5983");
     expect(response.headers.get("set-cookie")).toBeNull();
     expect(response.headers.get("www-authenticate")).toBeNull();
     expect(response.headers.get("x-frame-options")).toBeNull();
@@ -106,6 +108,19 @@ describe("harness stream proxy", () => {
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(`/api/harness/stream/${SESSION}/${TOKEN}/`);
     expect(requests).toEqual([]);
+  });
+
+  it("sends websocket upgrades the loopback target as both Host and Origin, with the login", () => {
+    expect(
+      HarnessStreamProxy.targetHeaders({
+        origin: "http://127.0.0.1:5983",
+        authorization: "Basic cGxheWVyOnNlY3JldA==",
+      }),
+    ).toEqual({
+      host: "127.0.0.1:5983",
+      origin: "http://127.0.0.1:5983",
+      authorization: "Basic cGxheWVyOnNlY3JldA==",
+    });
   });
 
   it("splits a stream path into session, token and the rest", () => {

@@ -61,7 +61,7 @@ switch (verb) {
     emit({ ok: true, actions: [] });
   case "session start": {
     const net = flag("--net") ?? "isolated";
-    const recorded = net === "isolated";
+    const recorded = args.includes("--record") ? true : args.includes("--no-record") ? false : net === "isolated";
     const started = { id: "h-1", by: flag("--by"), net, recorded, marks: 0 };
     fs.writeFileSync(sessionFile, JSON.stringify(started));
     emit({
@@ -357,7 +357,7 @@ describe("HarnessService", () => {
         });
         expect((yield* calls(checkout)).map((call) => call.args.join(" "))).toEqual([
           "prepare",
-          "session start --by person --streamed --net direct",
+          "session start --by person --streamed --net direct --no-record",
         ]);
 
         const twice = yield* harness
@@ -406,6 +406,64 @@ describe("HarnessService", () => {
         ]);
       }),
     ),
+  );
+
+  it.effect(
+    "records a direct session when asked, and a recorded session takes marks whatever its network",
+    () =>
+      withHarness(({ fixture: { checkouts }, harness, approve, calls }) =>
+        Effect.gen(function* () {
+          yield* approve("harness/gw");
+          const [checkout] = checkouts as [string];
+          const session = yield* harness.start({
+            projectId,
+            worktreePath: checkout,
+            by: "person",
+            net: "direct",
+            record: true,
+            projectCommands: "permitted",
+          });
+          expect(session).toMatchObject({ net: "direct", outbound: true, recorded: true });
+          expect((yield* calls(checkout)).at(-1)!.args).toContain("--record");
+          const marked = yield* harness.mark({ sessionId: session.id, note: "vendor flicker" });
+          expect(marked.markCount).toBe(1);
+        }),
+      ),
+  );
+
+  it.effect(
+    "uses the project's own cache folder when one is set, and T3 Code's after a reset",
+    () =>
+      withHarness(({ fixture: { root, checkouts }, harness, approve, calls }) =>
+        Effect.gen(function* () {
+          const fileSystem = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          yield* approve("harness/gw");
+          const [checkout] = checkouts as [string];
+          const own = path.join(root, "..", "existing-cache");
+          yield* fileSystem.makeDirectory(own);
+          const relative = yield* harness
+            .setCachePath({ projectId, cachePath: "relative/cache" })
+            .pipe(Effect.exit);
+          expect(failureOf(relative)).toMatchObject({ reason: "invalid-cache-path" });
+          const set = yield* harness.setCachePath({ projectId, cachePath: own });
+          expect(set.cachePath).toBe(own);
+          yield* harness.doctor({ projectId, projectCommands: "permitted" });
+          expect((yield* calls(root)).at(-1)!.env.T3CODE_CACHE_PATH).toBe(own);
+
+          const reset = yield* harness.setCachePath({ projectId, cachePath: null });
+          expect(reset.cachePath).toBeNull();
+          yield* harness.start({
+            projectId,
+            worktreePath: checkout,
+            by: "agent",
+            projectCommands: "permitted",
+          });
+          expect((yield* calls(checkout)).at(-1)!.env.T3CODE_CACHE_PATH).toBe(
+            reset.defaultCachePath,
+          );
+        }),
+      ),
   );
 
   it.effect("records a failed start with the harness's own error, and a retry starts again", () =>
@@ -488,7 +546,11 @@ describe("HarnessService", () => {
         .trim()
         .split("\n")
         .map((line) => (JSON.parse(line) as Call).args.join(" "));
-      expect(calls).toEqual(["prepare", "session start --by agent --net isolated", "session stop"]);
+      expect(calls).toEqual([
+        "prepare",
+        "session start --by agent --net isolated --record",
+        "session stop",
+      ]);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 

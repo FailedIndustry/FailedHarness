@@ -25,6 +25,7 @@ import {
   type ProjectId,
   type ThreadId,
 } from "@t3tools/contracts";
+import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as KeyedLock from "@t3tools/shared/KeyedLock";
 import { parseT3ProjectFile } from "@t3tools/shared/t3ProjectFile";
@@ -54,6 +55,7 @@ import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import { unsetInheritedRepositoryEnv } from "../vcs/VcsProcess.ts";
 import { isWithinRoot } from "../workspace/KnownWorkspaces.ts";
+import * as CheckoutRemovalHooks from "../workspace/CheckoutRemovalHooks.ts";
 import * as LayoutCommandApprovals from "../workspace/LayoutCommandApprovals.ts";
 import type { ProjectCommands, ProjectCommandsNow } from "../workspace/TaskFolders.ts";
 
@@ -102,6 +104,8 @@ export class HarnessService extends Context.Service<
       readonly threadId?: ThreadId | undefined;
       readonly by: HarnessSessionBy;
       readonly net?: HarnessNetwork | undefined;
+      /** Defaults to on for an isolated session and off for a direct one. */
+      readonly record?: boolean | undefined;
       readonly projectCommands: ProjectCommandsNow;
     }) => Effect.Effect<HarnessSession, HarnessError>;
     readonly stop: (input: {
@@ -156,6 +160,11 @@ export class HarnessService extends Context.Service<
      * deletes its output folder.
      */
     readonly releaseCheckout: (worktreePath: string) => Effect.Effect<void>;
+    /** The project's own harness cache folder; null goes back to T3 Code's default. */
+    readonly setCachePath: (input: {
+      readonly projectId: ProjectId;
+      readonly cachePath: string | null;
+    }) => Effect.Effect<HarnessDescription, HarnessError>;
   }
 >()("t3/harness/HarnessService") {}
 
@@ -274,6 +283,7 @@ const make = Effect.gen(function* () {
   const processes = yield* ProcessRunner.ProcessRunner;
   const hostEnvironment = yield* HostProcess.Environment;
   const hostPlatform = yield* HostProcess.Platform;
+  const homeDirectory = yield* HostProcess.HomeDirectory;
   const serviceScope = yield* Effect.scope;
   const commandsOffBy = ManagedPolicy.deniedBy(managedPolicy, "worktreeLayoutCommands");
 
@@ -297,8 +307,21 @@ const make = Effect.gen(function* () {
     fileSystem.realPath(target).pipe(Effect.orElseSucceed(() => path.resolve(target)));
   const harnessRoot = path.join(config.stateDir, "harness");
   const safeSegment = (value: string) => value.replace(/[^A-Za-z0-9_.-]/g, "_");
-  const cachePathFor = (projectId: ProjectId) =>
+  const defaultCachePathFor = (projectId: ProjectId) =>
     path.join(harnessRoot, "cache", safeSegment(projectId));
+  const configuredCachePath = (projectId: ProjectId) =>
+    sql<{ readonly cachePath: string }>`
+      SELECT cache_path AS "cachePath" FROM harness_projects WHERE project_id = ${projectId}
+    `.pipe(
+      Effect.map((rows) => rows[0]?.cachePath ?? null),
+      Effect.mapError(() => unavailable("Could not read the project's harness cache folder.")),
+    );
+  // A folder the person chose, such as one the harness filled before T3 Code ran it.
+  const cachePathFor = (projectId: ProjectId) =>
+    Effect.map(
+      configuredCachePath(projectId),
+      (chosen) => chosen ?? defaultCachePathFor(projectId),
+    );
   const outputPathFor = (checkout: string) =>
     digest.digest(Digest.sha256, new TextEncoder().encode(path.resolve(checkout))).pipe(
       Effect.map((bytes) => path.join(harnessRoot, "output", Hex.encode(bytes).slice(0, 16))),
@@ -427,7 +450,7 @@ const make = Effect.gen(function* () {
     );
 
   const envFor = Effect.fnUntraced(function* (context: CheckoutContext, slot: number) {
-    const cachePath = cachePathFor(context.projectId);
+    const cachePath = yield* cachePathFor(context.projectId);
     const outputPath = yield* outputPathFor(context.checkout);
     yield* Effect.forEach([cachePath, outputPath], (folder) =>
       fileSystem
@@ -511,8 +534,18 @@ const make = Effect.gen(function* () {
       const checkout =
         input.worktreePath === undefined ? projectRoot : path.resolve(input.worktreePath);
       const declared = yield* declaredIn(checkout);
+      const cache = {
+        cachePath: yield* configuredCachePath(input.projectId),
+        defaultCachePath: defaultCachePathFor(input.projectId),
+      };
       if (declared === null)
-        return { declared, approved: false, blocked: "not-declared", policyBy: null } as const;
+        return {
+          declared,
+          approved: false,
+          blocked: "not-declared",
+          policyBy: null,
+          ...cache,
+        } as const;
       const approved = yield* isApproved(input.projectId, declared);
       const blocked =
         commandsOffBy !== undefined
@@ -522,7 +555,7 @@ const make = Effect.gen(function* () {
             : (yield* executableIn(checkout, declared)) === null
               ? ("not-found" as const)
               : null;
-      return { declared, approved, blocked, policyBy: commandsOffBy ?? null };
+      return { declared, approved, blocked, policyBy: commandsOffBy ?? null, ...cache };
     },
   );
 
@@ -617,6 +650,7 @@ const make = Effect.gen(function* () {
     const id = HarnessSessionId.make(yield* random.uuidV4());
     const net = input.net ?? (input.by === "person" ? "direct" : "isolated");
     const streamed = input.by === "person";
+    const record = input.record ?? net === "isolated";
     const env = {
       ...(yield* envFor(context, slot)),
       T3CODE_STREAM_PATH: `${HARNESS_STREAM_ROUTE_PREFIX}/${id}/`,
@@ -675,6 +709,7 @@ const make = Effect.gen(function* () {
               ...(streamed ? ["--streamed"] : []),
               "--net",
               net,
+              record ? "--record" : "--no-record",
             ],
             timeout: VERB_TIMEOUTS.sessionStart,
             schema: HarnessSessionOutput,
@@ -698,7 +733,7 @@ const make = Effect.gen(function* () {
       outbound: started.outbound ?? net === "direct",
       streamed: started.streamed ?? streamed,
       viewable: entry.target !== null,
-      recorded: started.recorded ?? false,
+      recorded: started.recorded ?? record,
       recording: started.recording ?? null,
     });
     entry.poller = yield* pollStatus(entry).pipe(Effect.forkIn(serviceScope));
@@ -935,6 +970,39 @@ const make = Effect.gen(function* () {
       return entry === undefined ? Effect.void : update(entry, { packet: outcome });
     });
 
+  const setCachePath: HarnessService["Service"]["setCachePath"] = Effect.fn(
+    "HarnessService.setCachePath",
+  )(function* (input) {
+    yield* readProjectRoot(input.projectId);
+    if (input.cachePath === null) {
+      yield* sql`DELETE FROM harness_projects WHERE project_id = ${input.projectId}`.pipe(
+        Effect.mapError(() => unavailable("Could not reset the project's harness cache folder.")),
+      );
+    } else {
+      const chosen = path.resolve(expandHomePath(input.cachePath, homeDirectory));
+      if (!path.isAbsolute(expandHomePath(input.cachePath, homeDirectory))) {
+        return yield* new HarnessError({
+          reason: "invalid-cache-path",
+          detail: "The harness cache folder must be an absolute path.",
+        });
+      }
+      const info = yield* fileSystem.stat(chosen).pipe(Effect.option);
+      if (Option.isSome(info) && info.value.type !== "Directory") {
+        return yield* new HarnessError({
+          reason: "invalid-cache-path",
+          detail: `${chosen} is not a folder.`,
+        });
+      }
+      yield* sql`
+        INSERT INTO harness_projects (project_id, cache_path) VALUES (${input.projectId}, ${chosen})
+        ON CONFLICT (project_id) DO UPDATE SET cache_path = excluded.cache_path
+      `.pipe(
+        Effect.mapError(() => unavailable("Could not save the project's harness cache folder.")),
+      );
+    }
+    return yield* describe({ projectId: input.projectId });
+  });
+
   const releaseCheckout: HarnessService["Service"]["releaseCheckout"] = Effect.fn(
     "HarnessService.releaseCheckout",
   )(function* (worktreePath) {
@@ -960,6 +1028,10 @@ const make = Effect.gen(function* () {
     const outputPath = yield* outputPathFor(checkout);
     yield* fileSystem.remove(outputPath, { recursive: true, force: true }).pipe(Effect.ignoreCause);
   });
+
+  // Every removal of a checkout, by whichever code, stops its session first.
+  const removalHooks = yield* Effect.serviceOption(CheckoutRemovalHooks.CheckoutRemovalHooks);
+  if (Option.isSome(removalHooks)) yield* removalHooks.value.register(releaseCheckout);
 
   // Only sessions this server started: the ones it holds, then any a crash left recorded.
   yield* Effect.addFinalizer(() =>
@@ -1027,6 +1099,7 @@ const make = Effect.gen(function* () {
     commandEnv,
     notePacket,
     releaseCheckout,
+    setCachePath,
   });
 });
 

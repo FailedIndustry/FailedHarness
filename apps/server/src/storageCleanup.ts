@@ -62,6 +62,7 @@ import * as CheckpointCaptureIndex from "./vcs/checkpointCaptureIndex.ts";
 import * as GitVcsDriver from "./vcs/GitVcsDriver.ts";
 import { isNonRepositoryGitStderr } from "./vcs/GitVcsDriverCore.ts";
 import { isLinkedWorktree, removeLinkedWorktree } from "./vcs/worktreeRemoval.ts";
+import * as CheckoutRemovalHooks from "./workspace/CheckoutRemovalHooks.ts";
 import * as TaskFolders from "./workspace/TaskFolders.ts";
 import { withWorkspaceLease } from "./workspace/workspaceLease.ts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
@@ -326,6 +327,7 @@ export class StorageCleanup extends Context.Service<
 >()("t3/storageCleanup") {}
 
 const make = Effect.gen(function* () {
+  const beforeCheckoutRemoved = yield* CheckoutRemovalHooks.beforeRemoveFrom;
   const config = yield* ServerConfig.ServerConfig;
   const settingsService = yield* Settings.ServerSettingsService;
   const projectStore = yield* ProjectStore.ProjectStoreV2;
@@ -1641,6 +1643,7 @@ const make = Effect.gen(function* () {
                 (yield* blockedSinceCheck());
               if (blockedWhileMeasuring !== null) return keep(blockedWhileMeasuring);
               if (yield* settingsChangedSinceCheck) return keep("settings changed since check");
+              yield* beforeCheckoutRemoved(worktreePath);
               yield* fs.remove(worktreePath, { recursive: true });
               entries.push({
                 ...entry,
@@ -1916,6 +1919,7 @@ const make = Effect.gen(function* () {
               if (changes !== null) return keep(changes);
             }
             const repository = yield* worktreeRepository(worktreePath);
+            yield* beforeCheckoutRemoved(worktreePath);
             // Forced removal already discards local files; do not widen its final-check window.
             if (settings.worktreeKeepWhen === "tracked-changes" && !submodules.force)
               yield* cleanupGit(worktreePath, ["clean", "-ffdx"], "git clean");

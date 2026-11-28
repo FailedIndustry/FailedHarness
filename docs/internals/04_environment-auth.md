@@ -84,7 +84,10 @@ model.
   bearer or DPoP headers; only `harness.viewer` mints one, behind `orchestration:operate`, and it
   ends with the client session that asked or the harness session. The page runs on the
   environment's origin as approved project code, which is no new authority over a session that
-  can already run the harness.
+  can already run the harness. A session can only be stopped while its executable exists, so every
+  code path that deletes a checkout (the Git driver, task folders, storage cleanup) runs
+  [`CheckoutRemovalHooks`](../../apps/server/src/workspace/CheckoutRemovalHooks.ts) first; a new
+  remover must too.
 - **A repository's push hooks run for an agent below Full access only as a person approved
   them.** `pull_request_create` pushes as the server's OS user, and Git would run the checkout's
   `pre-push` and `reference-transaction` hooks, which the agent may have written. By the rule

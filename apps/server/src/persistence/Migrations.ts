@@ -133,6 +133,7 @@ import Migration0119 from "./Migrations/119_WorkflowRunSubject.ts";
 import Migration0120 from "./Migrations/120_ReviewPackets.ts";
 import Migration0121 from "./Migrations/121_ReviewComments.ts";
 import Migration0122 from "./Migrations/122_HarnessCheckouts.ts";
+import Migration0123 from "./Migrations/123_HarnessProjects.ts";
 
 const migrationEntries = [
   [1, "OrchestrationEvents", Migration0001],
@@ -258,6 +259,7 @@ const migrationEntries = [
   [120, "ReviewPackets", Migration0120],
   [121, "ReviewComments", Migration0121],
   [122, "HarnessCheckouts", Migration0122],
+  [123, "HarnessProjects", Migration0123],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);
