@@ -1,8 +1,15 @@
 import type { PullRequestAction } from "@t3tools/contracts";
+import type { ReviewStanding } from "@t3tools/shared/reviewQueue";
 import { contextMenuSourceOf } from "../../contextMenuSource";
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
-import { T } from "gt-react";
-import { SearchIcon } from "lucide-react";
+import { T, useGT } from "gt-react";
+import {
+  BotIcon,
+  ClipboardCheckIcon,
+  MessageSquareReplyIcon,
+  OctagonAlertIcon,
+  SearchIcon,
+} from "lucide-react";
 import { PullRequestChangeBreakdownStat } from "./PullRequestChangeBreakdownStat";
 import { PullRequestStackPopover } from "./PullRequestStackPopover";
 import {
@@ -67,6 +74,53 @@ function PullRequestRowLabels({ labels }: { labels: EnvironmentPullRequestEntry[
 
 const PAGE_ROW_CLASS = "px-3 py-2.5";
 
+/** One line on where the change stands in review, in words the reviewer can act on. */
+function PullRequestReviewStanding({ review }: { review: ReviewStanding }) {
+  const gt = useGT();
+  const { standing, unsent, open, answered, behind, verdict } = review;
+  if (standing === "no-packet" || standing === "closed") return null;
+  const text =
+    standing === "your-move"
+      ? answered > 0 && unsent > 0
+        ? gt("{answered} answered · {unsent} not sent", { answered, unsent })
+        : answered > 0
+          ? gt("{count} answered", { count: answered })
+          : gt("{count} not sent", { count: unsent })
+      : standing === "ready"
+        ? gt("Ready to review")
+        : standing === "with-agent"
+          ? behind
+            ? open > 0
+              ? gt("Packet behind · {count} open", { count: open })
+              : gt("Packet behind")
+            : gt("With the agent · {count} open", { count: open })
+          : verdict === "blocked"
+            ? gt("Blocked", { $context: "review packet verdict" })
+            : gt("Packet failed");
+  const Icon =
+    standing === "your-move"
+      ? MessageSquareReplyIcon
+      : standing === "ready"
+        ? ClipboardCheckIcon
+        : standing === "with-agent"
+          ? BotIcon
+          : OctagonAlertIcon;
+  return (
+    <span
+      data-review-standing={standing}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 whitespace-nowrap",
+        standing === "your-move" && "font-medium text-foreground",
+        standing === "ready" && "text-success-foreground",
+        standing === "not-passing" && "text-error-foreground",
+      )}
+    >
+      <Icon aria-hidden className="size-3 shrink-0" />
+      {text}
+    </span>
+  );
+}
+
 export type PullRequestRowTarget = Pick<
   EnvironmentPullRequestEntry,
   "environmentId" | "projectId" | "host" | "repository" | "number"
@@ -74,6 +128,7 @@ export type PullRequestRowTarget = Pick<
 
 function PullRequestRowImpl({
   entry,
+  review,
   selected,
   showProjectTitle,
   showProvider,
@@ -90,6 +145,7 @@ function PullRequestRowImpl({
   onCloseSweepStart,
 }: {
   entry: EnvironmentPullRequestEntry;
+  review?: ReviewStanding | undefined;
   selected: boolean;
   showProjectTitle: boolean;
   showProvider: boolean;
@@ -216,6 +272,7 @@ function PullRequestRowImpl({
           metaClassName="@container/pr-row-meta"
           meta={
             <>
+              {review === undefined ? null : <PullRequestReviewStanding review={review} />}
               {matchedElsewhere ? (
                 <SharedTooltipTrigger
                   render={

@@ -8,6 +8,7 @@ import {
   type PullRequestListFilters,
   type PullRequestListResult,
   type PullRequestListState,
+  type ReviewPacketChangeSummary,
 } from "@t3tools/contracts";
 import { useEffect, useState } from "react";
 
@@ -18,11 +19,13 @@ import {
   findProjectForRepository,
   findScopedProject,
   matchesPullRequestFilters,
+  matchesPullRequestPacketFilter,
   pullRequestDiffStatKey,
   pullRequestEntryKey,
   pullRequestEntryViewer,
   pullRequestEnvironmentSetKey,
   pullRequestHostActions,
+  pullRequestRowStanding,
   resolveProjectScope,
   resolveQueryEnvironmentIds,
   resolveSelectedEnvironmentId,
@@ -42,6 +45,7 @@ import {
 } from "./pullRequestProjectAssignment.logic";
 import { pullRequestFilterProjects } from "@t3tools/client-runtime/pull-request-project-filter";
 import { pullRequestListEntryId } from "./pullRequestListGroups.logic";
+import { reviewPacketFor, type ReviewPacketIndex } from "@t3tools/shared/reviewQueue";
 
 export interface PullRequestsSearch extends PullRequestListPreferences {
   readonly selectedUrl?: string;
@@ -257,6 +261,8 @@ export function usePullRequestDisplayGroups({
   sort,
   text,
   involvement,
+  reviewPackets,
+  packetFilter,
 }: {
   answered: MergedPullRequestList | null;
   host: string | undefined;
@@ -270,6 +276,8 @@ export function usePullRequestDisplayGroups({
   sort: PullRequestListSort;
   text: string;
   involvement: PullRequestInvolvement;
+  reviewPackets: ReadonlyMap<EnvironmentId, ReviewPacketIndex<ReviewPacketChangeSummary>>;
+  packetFilter: PullRequestListPreferences["packet"];
 }) {
   const [hostsState, setHostsState] = useState<{
     readonly source: MergedPullRequestList | null;
@@ -285,6 +293,10 @@ export function usePullRequestDisplayGroups({
     });
   }
   const hosts = hostsState.hosts;
+  const packetOf = (entry: EnvironmentPullRequestEntry) =>
+    reviewPacketFor(reviewPackets.get(entry.environmentId), entry);
+  const standingOf = (entry: EnvironmentPullRequestEntry) =>
+    pullRequestRowStanding(entry, packetOf(entry));
   const displayGroups = (() => {
     const enriched = groups.map((group) => {
       const overridden = applyPullRequestOverrides(
@@ -309,14 +321,22 @@ export function usePullRequestDisplayGroups({
             : overridden,
       };
     });
-    return sortPullRequestGroups(
+    const sorted = sortPullRequestGroups(
       enriched,
       sort,
       text,
       (entry) =>
         entry.additions + entry.deletions > 0 || statsByRow.has(pullRequestDiffStatKey(entry)),
       involvement,
+      packetOf,
     );
+    if (packetFilter === undefined) return sorted;
+    return sorted.flatMap((group) => {
+      const entries = group.entries.filter((entry) =>
+        matchesPullRequestPacketFilter(standingOf(entry), packetFilter),
+      );
+      return entries.length === 0 ? [] : [{ ...group, entries }];
+    });
   })();
   const shownCount = displayGroups.reduce((count, group) => count + group.entries.length, 0);
   const hostActionsOf = pullRequestHostActions(hosts);
@@ -336,6 +356,7 @@ export function usePullRequestDisplayGroups({
   return {
     hosts,
     displayGroups,
+    standingOf,
     shownCount,
     hostActionsOf,
     closeSweepRows,

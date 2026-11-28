@@ -136,3 +136,33 @@ export function pullRequestGroups({
     heldPullRequestsBySurface,
   };
 }
+
+/**
+ * The pull requests either side of `current`. A walk keeps the order the list had when it began,
+ * so a change that re-ranks once reviewed does not send the next step back over it; rows that
+ * have left the list since are skipped.
+ */
+export function pullRequestQueueNeighbours<Key extends string>(input: {
+  readonly walk: ReadonlyArray<Key> | null;
+  readonly listed: ReadonlyArray<Key>;
+  readonly current: Key | null;
+}): {
+  readonly keys: ReadonlyArray<Key>;
+  readonly previous: Key | null;
+  readonly next: Key | null;
+} {
+  const { walk, current } = input;
+  const listed = new Set(input.listed);
+  const order = walk !== null && current !== null && walk.includes(current) ? walk : input.listed;
+  const keys = order.filter((key) => key === current || listed.has(key));
+  const at = current === null ? -1 : keys.indexOf(current);
+  if (at === -1) {
+    // Like the sidebar: from nowhere, either way enters the list; from a row not in it, next does.
+    return {
+      keys,
+      previous: current === null ? (keys.at(-1) ?? null) : null,
+      next: keys[0] ?? null,
+    };
+  }
+  return { keys, previous: keys[at - 1] ?? null, next: keys[at + 1] ?? null };
+}

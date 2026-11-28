@@ -196,7 +196,7 @@ export const ReviewPacketChangeSummary = Schema.Struct({
 });
 export type ReviewPacketChangeSummary = typeof ReviewPacketChangeSummary.Type;
 
-const REVIEW_PACKET_LIST_MAX_LIMIT = 100;
+export const REVIEW_PACKET_LIST_MAX_LIMIT = 100;
 
 /** Every filter is optional; changes come newest recorded first. */
 export const ReviewPacketListInput = Schema.Struct({

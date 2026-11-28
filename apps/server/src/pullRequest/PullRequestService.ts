@@ -1376,6 +1376,7 @@ export const make = Effect.gen(function* () {
       url: input.item.url,
       author: input.item.author,
       headBranch: input.item.headBranch,
+      ...(input.item.headSha ? { headSha: input.item.headSha } : {}),
       baseBranch: input.item.baseBranch,
       state: input.item.state,
       isDraft: input.item.isDraft,

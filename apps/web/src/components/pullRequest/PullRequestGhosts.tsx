@@ -94,6 +94,7 @@ export function PullRequestDetailGhost({
   onClose,
   onCheckoutError,
   threadRef = null,
+  navigation,
 }: {
   seed?: PullRequestListEntry | null;
   summary?: PullRequestSummary | null;
@@ -106,6 +107,8 @@ export function PullRequestDetailGhost({
   onClose?: (() => void) | undefined;
   onCheckoutError?: ((error: Error) => void) | undefined;
   threadRef?: ScopedThreadRef | null | undefined;
+  /** Kept where the loaded header puts it, so stepping through a queue stays under the pointer. */
+  navigation?: ReactNode;
 }) {
   const gt = useGT();
   const resolve = useMessages();
@@ -150,7 +153,13 @@ export function PullRequestDetailGhost({
         !seed && "motion-safe:animate-skeleton",
       )}
     >
-      <div className="@container/pr-header grid min-w-0 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 border-b border-border/60">
+      <div
+        className={cn(
+          "@container/pr-header grid min-w-0 shrink-0 items-start gap-x-2 border-b border-border/60",
+          navigation ? "grid-cols-[auto_minmax(0,1fr)_auto]" : "grid-cols-[minmax(0,1fr)_auto]",
+        )}
+      >
+        {navigation}
         <div className="pl-4 grid h-7 min-w-0 items-center overflow-hidden">
           <div className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground sm:text-xs">
             {onBack ? (

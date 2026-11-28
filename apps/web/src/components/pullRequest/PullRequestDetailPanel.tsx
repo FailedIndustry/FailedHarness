@@ -46,6 +46,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { msg, T, useGT, useMessages, Var } from "gt-react";
 
@@ -380,6 +381,7 @@ export function PullRequestDetailPanel({
   onRevealSettled,
   initialTab,
   onTabChange,
+  queueNavigation,
 }: {
   environmentId: EnvironmentId;
   shortcutsEnabled: boolean;
@@ -411,6 +413,8 @@ export function PullRequestDetailPanel({
   /** Without one, a pull request with a review packet opens on it, others on Summary. */
   initialTab?: PullRequestDetailTab | undefined;
   onTabChange?: ((tab: PullRequestDetailTab) => void) | undefined;
+  /** Previous and next in the list this panel was opened from, ahead of the crumbs. */
+  queueNavigation?: ReactNode;
 }) {
   const gt = useGT();
   const resolve = useMessages();
@@ -1611,6 +1615,7 @@ export function PullRequestDetailPanel({
         threadRef={threadRef}
         {...(onBack ? { onBack } : {})}
         {...(onClose ? { onClose } : {})}
+        navigation={queueNavigation}
         actions={
           handoffSummary ? (
             <>
@@ -1640,11 +1645,15 @@ export function PullRequestDetailPanel({
       ) : null}
       <div
         className={cn(
-          "@container/pr-header grid min-w-0 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2",
+          "@container/pr-header grid min-w-0 shrink-0 items-start gap-x-2",
+          queueNavigation
+            ? "grid-cols-[auto_minmax(0,1fr)_auto]"
+            : "grid-cols-[minmax(0,1fr)_auto]",
           detail && "border-b border-border/60",
           !detail && !onClose && "hidden",
         )}
       >
+        {queueNavigation}
         <PullRequestDetailCrumbs
           detail={detail}
           threadRef={threadRef}

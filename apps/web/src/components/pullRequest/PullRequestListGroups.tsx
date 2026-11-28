@@ -1,4 +1,5 @@
 import type { EnvironmentId, PullRequestAction } from "@t3tools/contracts";
+import type { ReviewStanding } from "@t3tools/shared/reviewQueue";
 import { EyeIcon, LayersIcon, PenLineIcon, UsersIcon, type LucideIcon } from "lucide-react";
 import { useMessages } from "gt-react";
 import { useDeferredValue, type RefCallback } from "react";
@@ -63,6 +64,7 @@ export function PullRequestListGroups({
   selected,
   showProvider,
   statsRef,
+  standingOf,
   onSelect,
   onIntent,
   hostActionsOf,
@@ -83,6 +85,8 @@ export function PullRequestListGroups({
   } | null;
   showProvider: boolean;
   statsRef: RefCallback<HTMLDivElement>;
+  /** Where each row's change stands in review, for rows with a packet. */
+  standingOf: (entry: EnvironmentPullRequestEntry) => ReviewStanding | undefined;
   onSelect: (entry: PullRequestRowTarget) => void;
   onIntent: (entry: PullRequestRowTarget | null) => void;
   hostActionsOf: (entry: EnvironmentPullRequestEntry) => ReadonlySet<PullRequestAction>;
@@ -115,6 +119,7 @@ export function PullRequestListGroups({
                   statsKey={entryKey}
                   statsRef={statsRef}
                   entry={entry}
+                  review={standingOf(entry)}
                   showProjectTitle
                   showProvider={showProvider}
                   {...(environmentLabel !== undefined ? { environmentLabel } : {})}
