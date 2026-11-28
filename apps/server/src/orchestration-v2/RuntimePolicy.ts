@@ -196,6 +196,7 @@ export const layerFromProjectStore: Layer.Layer<
           cwd,
           ...(maxRuntimeMode === undefined ? {} : { maxRuntimeMode }),
           ...(workspace === undefined || workspace.folders.length === 0 ? {} : { workspace }),
+          ...(input.thread.coordinator === true ? { coordinator: true } : {}),
         });
       }),
     });

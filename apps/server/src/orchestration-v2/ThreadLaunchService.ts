@@ -131,6 +131,8 @@ export interface ThreadLaunchInput {
   readonly delegatedFrom?: OrchestrationV2DelegatedFrom;
   /** The workflow run this thread is an agent step of. */
   readonly workflowRun?: OrchestrationV2WorkflowOrigin;
+  /** The project's coordinator, which `ProjectCoordinator` opens. */
+  readonly coordinator?: boolean;
 }
 
 type PreparationInput = Pick<
@@ -1585,6 +1587,7 @@ const make = Effect.gen(function* () {
                   ? {}
                   : { delegatedFrom: input.delegatedFrom }),
                 ...(input.workflowRun === undefined ? {} : { workflowRun: input.workflowRun }),
+                ...(input.coordinator === true ? { coordinator: true } : {}),
                 createdBy: input.createdBy,
                 creationSource: input.creationSource,
                 ...(initialMessage === undefined

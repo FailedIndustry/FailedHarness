@@ -1,5 +1,6 @@
 import { historyResponseItems } from "@t3tools/provider-core/server/handoffBudget";
 import { makeProviderFailure } from "@t3tools/provider-core/server/failure";
+import { COORDINATOR_INSTRUCTIONS } from "@t3tools/provider-core/server/runtimeInstructions";
 import {
   makeProviderTextDeltaCoalescer,
   type ProviderTextDeltaUpdate,
@@ -290,6 +291,34 @@ describe("CodexAdapterV2 runtime policy", () => {
         autoAcceptEdits.additionalContext?.["t3_code_workspace"]?.value,
         "- api (Git repository): /work/api",
       );
+    }),
+  );
+
+  it.effect("tells only a project's coordinator how to coordinate, in its own context entry", () =>
+    Effect.gen(function* () {
+      const build = (coordinator?: boolean) =>
+        CodexAdapterV2.buildCodexTurnStartParams({
+          nativeThreadId: "native-coordinator",
+          codexInput: [{ type: "text", text: "Add dark mode" }],
+          runtimePolicy: {
+            runtimeMode: "full-access",
+            interactionMode: "default",
+            cwd: "/work/app",
+            ...(coordinator === undefined ? {} : { coordinator }),
+          },
+          modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "gpt-5.4" },
+          hasT3Mcp: true,
+        });
+
+      const coordinator = yield* build(true);
+      assert.equal(
+        coordinator.additionalContext?.["t3_code_coordinator"]?.value,
+        COORDINATOR_INSTRUCTIONS,
+      );
+      for (const other of [yield* build(), yield* build(false)]) {
+        assert.notProperty(other.additionalContext ?? {}, "t3_code_coordinator");
+        assert.notInclude(JSON.stringify(other.additionalContext), "<project_coordinator>");
+      }
     }),
   );
 

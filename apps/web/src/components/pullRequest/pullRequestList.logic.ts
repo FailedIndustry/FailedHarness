@@ -24,8 +24,9 @@ import type {
 import { isStalePullRequestReply } from "@t3tools/client-runtime/pull-request-reply";
 import { toSortableTimestamp } from "@t3tools/client-runtime/state/thread-sort";
 import {
-  mergeReadinessTier,
-  rankReviewQueue,
+  compareByRecency,
+  hasLineCounts,
+  rankByMergeReadiness,
   reviewStanding,
   type ReviewQueuePacket,
   type ReviewStanding,
@@ -774,40 +775,11 @@ export function rankPullRequestMatches<Entry extends PullRequestListEntry>(
   });
 }
 
-const measuredFirst =
-  <Entry extends PullRequestListEntry>(hasMeasuredSize: (entry: Entry) => boolean) =>
-  (left: Entry, right: Entry) => {
-    const measured = Number(hasMeasuredSize(right)) - Number(hasMeasuredSize(left));
-    const sized = left.additions + left.deletions - (right.additions + right.deletions);
-    return measured || sized || comparePullRequestsByRecency(left, right);
-  };
-
-const hasLineCounts = (entry: PullRequestListEntry) => entry.additions + entry.deletions > 0;
-
 export function rankPullRequestsByMergeReadiness<Entry extends PullRequestListEntry>(
   entries: ReadonlyArray<Entry>,
   hasMeasuredSize: (entry: Entry) => boolean = hasLineCounts,
 ): ReadonlyArray<Entry> {
-  const tieBreak = measuredFirst(hasMeasuredSize);
-  return entries.toSorted(
-    (left, right) => mergeReadinessTier(left) - mergeReadinessTier(right) || tieBreak(left, right),
-  );
-}
-
-/** Today's readiness order until some listed pull request has a review packet. */
-function rankPullRequestReviewQueue<Entry extends PullRequestListEntry>(
-  entries: ReadonlyArray<Entry>,
-  packetOf: (entry: Entry) => ReviewQueuePacket | null,
-  hasMeasuredSize: (entry: Entry) => boolean = hasLineCounts,
-): ReadonlyArray<Entry> {
-  if (!entries.some((entry) => packetOf(entry) !== null)) {
-    return rankPullRequestsByMergeReadiness(entries, hasMeasuredSize);
-  }
-  return rankReviewQueue(
-    entries,
-    (entry) => reviewStanding(entry, packetOf(entry)),
-    measuredFirst(hasMeasuredSize),
-  );
+  return rankByMergeReadiness(entries, () => null, hasMeasuredSize);
 }
 
 const internedStandings = new Map<string, ReviewStanding>();
@@ -840,17 +812,10 @@ export function matchesPullRequestPacketFilter(
   );
 }
 
-export function comparePullRequestsByRecency(
+export const comparePullRequestsByRecency: (
   left: PullRequestListEntry,
   right: PullRequestListEntry,
-) {
-  const leftUpdated = toSortableTimestamp(left.updatedAt);
-  const rightUpdated = toSortableTimestamp(right.updatedAt);
-  const measured = Number(leftUpdated === null) - Number(rightUpdated === null);
-  if (measured !== 0) return measured;
-  if (leftUpdated === null || rightUpdated === null) return 0;
-  return rightUpdated - leftUpdated;
-}
+) => number = compareByRecency;
 
 function rankByTierThenRecency<Entry extends PullRequestListEntry>(
   entries: ReadonlyArray<Entry>,
@@ -895,9 +860,7 @@ export function sortPullRequestGroups<Entry extends PullRequestListEntry>(
 
   if (sort === "ready") {
     return searchText.trim().length === 0
-      ? sortWithinGroups((entries) =>
-          rankPullRequestReviewQueue(entries, packetOf, hasMeasuredSize),
-        )
+      ? sortWithinGroups((entries) => rankByMergeReadiness(entries, packetOf, hasMeasuredSize))
       : groups;
   }
   if (sort === "blocked") {

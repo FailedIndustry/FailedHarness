@@ -56,6 +56,7 @@ import {
   ShieldQuestionIcon,
   SquarePenIcon,
   TerminalIcon,
+  TowerControlIcon,
   Undo2Icon,
   UserRoundIcon,
   XIcon,
@@ -1148,6 +1149,14 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     </span>
   );
 
+  const coordinatorIcon = thread.coordinator ? (
+    <TowerControlIcon
+      role="img"
+      aria-label={gt("Coordinator", { $context: "a project's coordinator thread" })}
+      className="size-3.5 shrink-0 text-muted-foreground"
+    />
+  ) : null;
+
   const prBadgeShape = supportsMultiplePullRequests
     ? resolveThreadPullRequestBadge(thread.pullRequests)
     : null;
@@ -1396,6 +1405,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               </span>
             )}
             {draftIndicator}
+            {coordinatorIcon}
             {title}
             {multiline ? titleLineIcons : null}
             {pinIndicator}
@@ -1754,6 +1764,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
             {props.sweepAction !== null ? dragDestination : null}
           </div>
           <div className="mt-1 flex min-w-0 items-center gap-1.5">
+            {coordinatorIcon}
             {title}
             {isRegeneratingTitle ? (
               <span role="status" className="sr-only">

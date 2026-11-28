@@ -52,7 +52,10 @@ import { projectComposerContextForProvider } from "@t3tools/shared/composerConte
 import { THEME_GUIDE } from "@t3tools/shared/themeCss";
 import { formatThreadLink } from "@t3tools/shared/threadLinks";
 import { buildCodexAdditionalContext } from "../../apps/server/src/provider/CodexDeveloperInstructions.ts";
-import { PULL_REQUEST_LINKING_INSTRUCTIONS } from "@t3tools/provider-core/server/runtimeInstructions";
+import {
+  COORDINATOR_INSTRUCTIONS,
+  PULL_REQUEST_LINKING_INSTRUCTIONS,
+} from "@t3tools/provider-core/server/runtimeInstructions";
 import { makeSideChatContext } from "../../apps/server/src/orchestration-v2/ContextHandoffService.ts";
 import { withInlineContext } from "../../apps/server/src/orchestration-v2/ContextHandoffDelivery.ts";
 import { AttachmentToolkit } from "../../apps/server/src/mcp/toolkits/attachment/tools.ts";
@@ -69,6 +72,7 @@ import { scrubFeedback } from "../../apps/server/src/feedback/scrubFeedback.ts";
 import { EnvironmentToolkit } from "../../apps/server/src/mcp/toolkits/environment/tools.ts";
 import { HtmlToolkit } from "../../apps/server/src/mcp/toolkits/html/tools.ts";
 import { IssuesToolkit } from "../../apps/server/src/mcp/toolkits/issues/tools.ts";
+import { ReviewQueueToolkit } from "../../apps/server/src/mcp/toolkits/reviewQueue/tools.ts";
 import { MessageToolkit } from "../../apps/server/src/mcp/toolkits/message/tools.ts";
 import { OrchestratorToolkit } from "../../apps/server/src/mcp/toolkits/orchestrator/tools.ts";
 import { PreviewToolkit } from "../../apps/server/src/mcp/toolkits/preview/tools.ts";
@@ -354,6 +358,8 @@ export const McpToolUseCase = Schema.Struct({
     linkedEnvironments: Schema.optional(Schema.Boolean),
     /** false: the project is on no forge T3 reads, so T3 hides its forge tools. */
     forge: Schema.optional(Schema.Boolean),
+    /** The thread is its project's coordinator, so T3's text tells it how to coordinate. */
+    coordinator: Schema.optional(Schema.Boolean),
     /** delegate_task `role` for a delegated child. T3 builds the child's first message from it. */
     delegateRole: Schema.optional(OrchestratorMcpTaskRole),
     context: Schema.optional(Schema.String),
@@ -509,6 +515,7 @@ const t3SourceTools: ReadonlyArray<Tool.Any> = [
   PullRequestsToolkit,
   PreviewToolkit,
   IssuesToolkit,
+  ReviewQueueToolkit,
   DeviceToolkit,
   HtmlToolkit,
   MessageToolkit,
@@ -611,6 +618,7 @@ const claudeQueryOptions = (
   device = true,
   browser = true,
   agentFeedback: Contracts.AgentFeedbackMode = "off",
+  coordinator = false,
 ) => {
   // Refs whose text follows a capability read its flag; older ones ignore it.
   const input: Parameters<typeof makeClaudeQueryOptions>[0] & {
@@ -625,6 +633,7 @@ const claudeQueryOptions = (
     agentFeedback,
     deviceToolsAvailable: device,
     browserToolsAvailable: browser,
+    ...(coordinator ? { coordinator } : {}),
   };
   return makeClaudeQueryOptions(input);
 };
@@ -635,8 +644,9 @@ export const t3SystemAppend = (
   device = true,
   browser = true,
   agentFeedback: Contracts.AgentFeedbackMode = "off",
+  coordinator = false,
 ) => {
-  const { systemPrompt } = claudeQueryOptions(model, device, browser, agentFeedback);
+  const { systemPrompt } = claudeQueryOptions(model, device, browser, agentFeedback, coordinator);
   if (isRecord(systemPrompt) && systemPrompt.type === "preset" && systemPrompt.append) {
     return systemPrompt.append;
   }
@@ -728,6 +738,8 @@ export const buildBase = (
     readonly browserAccess?: boolean;
     /** The Agent feedback mode: on, T3 lists its tools and its text includes the mode's line. */
     readonly agentFeedback?: Contracts.AgentFeedbackMode;
+    /** The project's coordinator: T3's text says how to coordinate. */
+    readonly coordinator?: boolean;
     readonly arm?: Arm;
   },
 ) => {
@@ -755,7 +767,13 @@ export const buildBase = (
   const append = options.nativeSubagent
     ? ""
     : forArm(
-        t3SystemAppend(model, options.deviceAccess, options.browserAccess, options.agentFeedback),
+        t3SystemAppend(
+          model,
+          options.deviceAccess,
+          options.browserAccess,
+          options.agentFeedback,
+          options.coordinator,
+        ),
         options.arm,
       );
   const modelLine = `You are powered by the model named ${MODELS[model]}. The exact model ID is ${model}.`;
@@ -829,6 +847,8 @@ const buildCodexBase = (
     readonly browserAccess?: boolean;
     /** The Agent feedback mode: on, T3 lists its tools and its text includes the mode's line. */
     readonly agentFeedback?: Contracts.AgentFeedbackMode;
+    /** The project's coordinator: T3's text says how to coordinate. */
+    readonly coordinator?: boolean;
     readonly arm?: Arm;
   },
 ): Base => {
@@ -871,8 +891,12 @@ const buildCodexBase = (
     },
     { browser: options.browserAccess ?? true, device: options.deviceAccess ?? true },
   );
+  const coordinatorContext =
+    options.coordinator === true
+      ? { t3_code_coordinator: { value: COORDINATOR_INSTRUCTIONS } }
+      : {};
   input.push(
-    ...Object.entries(context).map(([key, entry]) =>
+    ...Object.entries({ ...context, ...coordinatorContext }).map(([key, entry]) =>
       message(`<${key}>${forArm(entry.value, options.arm)}</${key}>`),
     ),
   );
@@ -3302,6 +3326,7 @@ const main = Effect.gen(function* () {
     links: boolean,
     forge: boolean,
     agentFeedback: Contracts.AgentFeedbackMode = "off",
+    coordinator = false,
   ): Effect.Effect<Base, Schema.SchemaError> =>
     codex
       ? decodeCodexCapture(template).pipe(
@@ -3316,6 +3341,7 @@ const main = Effect.gen(function* () {
               deviceAccess,
               browserAccess,
               agentFeedback,
+              coordinator,
               arm: flags.arm,
             }),
           ),
@@ -3332,6 +3358,7 @@ const main = Effect.gen(function* () {
               deviceAccess,
               browserAccess,
               agentFeedback,
+              coordinator,
               arm: flags.arm,
             });
             return role === "native-subagent"
@@ -3343,14 +3370,15 @@ const main = Effect.gen(function* () {
         );
   // Codex has no native subagents; its cases with that role run as top-level threads.
   const baseKey = ({ setup }: McpToolUseCase) =>
-    `${codex && setup.role === "native-subagent" ? "top" : setup.role}:${setup.world?.deviceAgentAccess !== false}:${setup.world?.browserAgentAccess !== false}:${setup.linkedEnvironments === true}:${setup.forge !== false}:${setup.world?.agentFeedback ?? "off"}`;
+    `${codex && setup.role === "native-subagent" ? "top" : setup.role}:${setup.world?.deviceAgentAccess !== false}:${setup.world?.browserAgentAccess !== false}:${setup.linkedEnvironments === true}:${setup.forge !== false}:${setup.world?.agentFeedback ?? "off"}:${setup.coordinator === true}`;
   const base = yield* buildFor("top", true, true, false, true);
-  const bases = new Map<string, Base>([["top:true:true:false:true:off", base]]);
+  const bases = new Map<string, Base>([["top:true:true:false:true:off:false", base]]);
   for (const testCase of selected) {
     const key = baseKey(testCase);
     if (bases.has(key)) continue;
-    const [role = "top", device, browser, links, forge, feedback] = key.split(":") as [
+    const [role = "top", device, browser, links, forge, feedback, coordinator] = key.split(":") as [
       McpToolUseCase["setup"]["role"],
+      string,
       string,
       string,
       string,
@@ -3366,6 +3394,7 @@ const main = Effect.gen(function* () {
         links === "true",
         forge === "true",
         feedback as Contracts.AgentFeedbackMode,
+        coordinator === "true",
       ),
     );
   }

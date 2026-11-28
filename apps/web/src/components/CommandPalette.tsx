@@ -84,6 +84,7 @@ import {
   PlugIcon,
   SquarePenIcon,
   TextSearchIcon,
+  TowerControlIcon,
   UserPlusIcon,
   WorkflowIcon,
 } from "lucide-react";
@@ -106,6 +107,10 @@ import { useAtomValue } from "@effect/atom-react";
 import { isDesktopLocalConnectionTarget } from "../connection/desktopLocal";
 import { useDesktopLocalBootstraps } from "../connection/useDesktopLocalBootstraps";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
+import {
+  canOpenProjectCoordinator,
+  useOpenProjectCoordinator,
+} from "../hooks/useOpenProjectCoordinator";
 import { useOpenPanelPullRequestUrl } from "../hooks/useOpenPanelPullRequestUrl";
 import { copyThreadReference } from "../lib/copyThreadReference";
 import { moveDraftToProject } from "../lib/moveDraftToProject";
@@ -612,6 +617,7 @@ function OpenCommandPaletteDialog(props: {
   const [isRemoteProjectCloning, setIsRemoteProjectCloning] = useState(false);
   const { environmentLabelById, projectEnvironmentLocationById } = useEnvironmentLookups();
   const projectGroups = useSortedProjectGroups(environmentLabelById);
+  const openProjectCoordinator = useOpenProjectCoordinator();
   const contextualProjectRef = resolveThreadActionProjectRef({
     activeDraftThread,
     activeThread: activeThread ?? undefined,
@@ -1864,6 +1870,21 @@ function OpenCommandPaletteDialog(props: {
         <PinIcon className={ITEM_ICON_CLASS} />
       ),
       run: async () => toggleProjectGroupPin(currentProjectGroup),
+    });
+  }
+  if (
+    currentProjectGroup &&
+    contextualProjectRef &&
+    canOpenProjectCoordinator(contextualProjectRef)
+  ) {
+    actionItems.push({
+      kind: "action",
+      value: "action:project-coordinator",
+      searchTerms: ["coordinator", "project", "orchestrator", "delegate", "status", "queue"],
+      title: gt("Open coordinator"),
+      description: currentProjectGroup.displayName,
+      icon: <TowerControlIcon className={ITEM_ICON_CLASS} />,
+      run: async () => openProjectCoordinator(contextualProjectRef),
     });
   }
   const contextualProjectGroup = currentProjectGroup ?? projectGroups[0] ?? null;

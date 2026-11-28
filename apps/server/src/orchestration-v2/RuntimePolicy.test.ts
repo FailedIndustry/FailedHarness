@@ -218,6 +218,19 @@ it.layer(layerTest)("RuntimePolicyV2", (it) => {
       assert.notProperty(yield* resolve("/work"), "workspace");
     }),
   );
+
+  it.effect("marks only the project's coordinator, whose instructions follow the mark", () =>
+    Effect.gen(function* () {
+      const policy = yield* RuntimePolicy.RuntimePolicyV2;
+      const thread = makeThread({ now: yield* DateTime.now, worktreePath: null });
+
+      assert.isTrue(
+        (yield* policy.resolve({ thread: { ...thread, coordinator: true }, modelSelection }))
+          .coordinator,
+      );
+      assert.notProperty(yield* policy.resolve({ thread, modelSelection }), "coordinator");
+    }),
+  );
 });
 
 it.layer(layerTaskFolderPolicy)("RuntimePolicyV2 in a task folder", (it) => {

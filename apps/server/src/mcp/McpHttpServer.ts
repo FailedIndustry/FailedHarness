@@ -109,8 +109,10 @@ import { ToolSearchToolkit } from "./toolkits/toolSearch/tools.ts";
 import { PullRequestsToolkit } from "./toolkits/pullRequests/tools.ts";
 import * as IssuesHandlers from "./toolkits/issues/handlers.ts";
 import * as ReviewCommentsHandlers from "./toolkits/reviewComments/handlers.ts";
+import * as ReviewQueueHandlers from "./toolkits/reviewQueue/handlers.ts";
 import { IssuesToolkit } from "./toolkits/issues/tools.ts";
 import { ReviewCommentsToolkit } from "./toolkits/reviewComments/tools.ts";
+import { ReviewQueueToolkit } from "./toolkits/reviewQueue/tools.ts";
 import * as DeviceHandlers from "./toolkits/device/handlers.ts";
 import {
   DeviceScreenshotTool,
@@ -1555,6 +1557,8 @@ const layerReviewCommentsToolkit = toolkitRegistration(
   ReviewCommentsHandlers.layer,
 );
 
+const layerReviewQueueToolkit = toolkitRegistration(ReviewQueueToolkit, ReviewQueueHandlers.layer);
+
 const layerDeviceStandardToolkitRegistration = toolkitRegistration(
   DeviceStandardToolkit,
   DeviceHandlers.layerStandard,
@@ -1615,6 +1619,7 @@ export const layerTools = Layer.mergeAll(
   layerPullRequestsToolkit,
   layerIssuesToolkit,
   layerReviewCommentsToolkit,
+  layerReviewQueueToolkit,
   layerDeviceToolkit,
   layerHtmlToolkit,
   layerMessageToolkit,

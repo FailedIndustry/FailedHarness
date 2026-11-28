@@ -246,6 +246,7 @@ import * as ProjectService from "./project/ProjectService.ts";
 import { threadWorkspaceRoot } from "./project/threadWorkspaceRoot.ts";
 import * as ManagedProjectFolders from "./project/ManagedProjectFolders.ts";
 import * as ScratchThreadPromotion from "./project/ScratchThreadPromotion.ts";
+import * as ProjectCoordinator from "./project/ProjectCoordinator.ts";
 import { mutateProjectWithClone } from "./project/ProjectMutation.ts";
 import * as ProjectCloneTracker from "./project/ProjectCloneTracker.ts";
 import * as RepositoryIdentityResolver from "./project/RepositoryIdentityResolver.ts";
@@ -1482,6 +1483,7 @@ export const layerWsRpc = (
       const projectService = yield* ProjectService.ProjectService;
       const managedFolders = yield* ManagedProjectFolders.ManagedProjectFolders;
       const scratchThreadPromotion = yield* ScratchThreadPromotion.ScratchThreadPromotion;
+      const projectCoordinator = yield* ProjectCoordinator.ProjectCoordinator;
       const eventLoopMonitor = yield* EventLoopMonitor.EventLoopMonitor;
       const threadSearch = yield* ThreadSearch.ThreadSearch;
 
@@ -3085,6 +3087,14 @@ export const layerWsRpc = (
         [WS_METHODS.projectsCreateNew]: (input) =>
           managedFolders
             .createNamedProject(input)
+            .pipe(
+              Effect.mapError(
+                (cause) => new OrchestrationDispatchCommandError({ message: cause.message, cause }),
+              ),
+            ),
+        [WS_METHODS.projectsOpenCoordinator]: (input) =>
+          projectCoordinator
+            .open(input)
             .pipe(
               Effect.mapError(
                 (cause) => new OrchestrationDispatchCommandError({ message: cause.message, cause }),

@@ -591,6 +591,18 @@ export const ProjectCreateFromThreadResult = Schema.Struct({
 });
 export type ProjectCreateFromThreadResult = typeof ProjectCreateFromThreadResult.Type;
 
+export const ProjectOpenCoordinatorInput = Schema.Struct({
+  projectId: ProjectId,
+});
+export type ProjectOpenCoordinatorInput = typeof ProjectOpenCoordinatorInput.Type;
+
+/** The project's live coordinator thread; `created` when this call made it. */
+export const ProjectOpenCoordinatorResult = Schema.Struct({
+  threadId: ThreadId,
+  created: Schema.Boolean,
+});
+export type ProjectOpenCoordinatorResult = typeof ProjectOpenCoordinatorResult.Type;
+
 export class ProjectWriteFileError extends Schema.TaggedError<ProjectWriteFileError>()(
   "ProjectWriteFileError",
   {

@@ -21,6 +21,16 @@ Threads don't require a project. Pick **No project** (or press `mod+alt+n` on we
 - **Background start** (web/desktop): Press `Cmd+Enter` (macOS) or `Ctrl+Enter` (Windows/Linux) in a new thread to submit it and immediately open another draft with the same workspace mode and base branch.
 - **Same prompt, multiple models** (web/desktop, Git projects): `Shift`-click models in a new thread's model picker to select several. Sending starts a separate thread and worktree for each model.
 
+### Hand work to the project coordinator
+
+Each project can have one **Coordinator**: a thread you talk to instead of opening threads yourself. Open it from the command palette (**Open coordinator**), the tower icon beside a project in the sidebar's project filter, or a project folder's menu. It is pinned and marked with the same icon in the thread list.
+
+- **Ask for work**: The coordinator starts a new worktree thread for each request and passes your words on unchanged, under a short note on which branch to start from and which open pull requests touch the same folders. A request that builds on an open change goes up as a pull request stacked on it; a follow-up to an existing change goes to the thread already working on it.
+- **Ask where things stand**: It answers from your [review queue](./source-control.md#your-review-queue): what needs you, what is with agents, and what is ready to go in.
+- **What it never does**: It does not edit files, push, merge, mark pull requests ready, or resolve review comments.
+- **Model**: It runs on your default model for new threads, or the model you used last, and the threads it starts use the same model unless you name another.
+- **Start over**: Settle or archive it like any thread; the next **Open coordinator** makes a new one. It does not check in on its own; ask it when you want an update.
+
 ## Sidebar layout and organization
 
 - **Resize or hide** (web/desktop): Drag the sidebar's right edge past its minimum width to hide it; hover the left window edge and click or drag the handle to bring it back.

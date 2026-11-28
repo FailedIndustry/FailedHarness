@@ -174,7 +174,10 @@ import {
 } from "@t3tools/provider-core/server/subagentProjection";
 import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
-import { buildWorkspaceInstructions } from "@t3tools/provider-core/server/runtimeInstructions";
+import {
+  buildWorkspaceInstructions,
+  COORDINATOR_INSTRUCTIONS,
+} from "@t3tools/provider-core/server/runtimeInstructions";
 
 const CODEX_PROVIDER = ProviderDriverKind.make("codex");
 const CODEX_CAPACITY_MAX_RETRIES = 5;
@@ -999,12 +1002,23 @@ export const buildCodexTurnStartParams = Effect.fn("CodexAdapterV2.buildCodexTur
       workspaceInstructions === ""
         ? undefined
         : { t3_code_workspace: { kind: "application" as const, value: workspaceInstructions } };
+    // Its own entry: with a long folder list the runtime entry would pass Codex's 4,000-byte cap.
+    const coordinatorContext =
+      input.runtimePolicy.coordinator === true
+        ? {
+            t3_code_coordinator: {
+              kind: "application" as const,
+              value: COORDINATOR_INSTRUCTIONS,
+            },
+          }
+        : undefined;
     const additionalContext =
       t3Context === undefined &&
       workspaceContext === undefined &&
+      coordinatorContext === undefined &&
       Object.keys(appContext).length === 0
         ? undefined
-        : { ...t3Context, ...workspaceContext, ...appContext };
+        : { ...t3Context, ...workspaceContext, ...coordinatorContext, ...appContext };
     return yield* decodeCodexTurnStartParams({
       threadId: input.nativeThreadId,
       input: input.codexInput,

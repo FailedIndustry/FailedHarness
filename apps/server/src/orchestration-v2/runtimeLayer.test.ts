@@ -12957,6 +12957,54 @@ it.layer(layerTest)("snooze queued runs", (it) => {
   );
 });
 
+it.layer(layerProjectDeletionTest)("a project's coordinator thread", (it) => {
+  it.effect("keeps its mark in the shell and the project's thread list, and only it", () =>
+    Effect.gen(function* () {
+      const projects = yield* ProjectService.ProjectService;
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const threads = yield* ThreadManagementService.ThreadManagementService;
+      const projectId = ProjectId.make("runtime-layer-coordinator");
+      yield* projects.create({
+        commandId: CommandId.make("runtime-layer-coordinator-project"),
+        projectId,
+        title: "Coordinated",
+        workspaceRoot: "/tmp/runtime-layer-coordinator",
+      });
+      const create = (id: string, coordinator: boolean) =>
+        orchestrator.dispatch({
+          type: "thread.create",
+          createdBy: "user",
+          creationSource: "server",
+          commandId: CommandId.make(`runtime-layer-coordinator-${id}`),
+          threadId: ThreadId.make(`runtime-layer-coordinator-${id}`),
+          projectId,
+          title: id,
+          modelSelection,
+          runtimeMode: "full-access",
+          interactionMode: "default",
+          branch: null,
+          worktreePath: null,
+          ...(coordinator ? { coordinator: true } : {}),
+        });
+      yield* create("coordinator", true);
+      yield* create("ordinary", false);
+
+      const coordinatorId = ThreadId.make("runtime-layer-coordinator-coordinator");
+      const ordinaryId = ThreadId.make("runtime-layer-coordinator-ordinary");
+      assert.isTrue((yield* orchestrator.getThreadShell(coordinatorId))?.coordinator);
+      assert.notProperty((yield* orchestrator.getThreadShell(ordinaryId)) ?? {}, "coordinator");
+      const listed = yield* threads.listProjectThreads({ projectId, includeSubagents: false });
+      assert.deepEqual(
+        listed.map((thread) => [thread.id, thread.coordinator === true]).toSorted(),
+        [
+          [coordinatorId, true],
+          [ordinaryId, false],
+        ],
+      );
+    }),
+  );
+});
+
 const SCRATCH_ROOT = "/tmp/runtime-layer-promotion-scratch";
 const SCRATCH_PROJECT_ID = ProjectId.make("runtime-layer-promotion-scratch");
 const layerScratchPromotionTest = ScratchThreadPromotion.layer.pipe(
