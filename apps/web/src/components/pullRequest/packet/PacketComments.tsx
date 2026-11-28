@@ -59,8 +59,8 @@ import {
   unsentEntryIds,
   type CommentOverlay,
   type PacketCommentLayout,
-} from "./packetComments.logic";
-import type { PacketVisual } from "./reviewPacket.logic";
+} from "@t3tools/client-runtime/review-packet-comments";
+import type { PacketVisual } from "@t3tools/client-runtime/review-packet";
 
 export interface PacketViewerRequest {
   readonly visuals: ReadonlyArray<PacketVisual>;

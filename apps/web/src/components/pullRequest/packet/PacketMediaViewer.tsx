@@ -40,8 +40,8 @@ import {
   type Box,
   type ClipRange,
   type Fraction,
-} from "./packetComments.logic";
-import type { PacketVisual } from "./reviewPacket.logic";
+} from "@t3tools/client-runtime/review-packet-comments";
+import type { PacketVisual } from "@t3tools/client-runtime/review-packet";
 
 export const reviewMediaResource = (id: string) => ({ _tag: "review-media" as const, id });
 

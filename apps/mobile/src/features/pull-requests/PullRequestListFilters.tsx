@@ -49,6 +49,11 @@ const SORTS = {
   updated: msg("Recently updated"),
   created: msg("Newest created"),
   oldest: msg("Oldest updated"),
+  ready: msg("Merge readiness"),
+};
+const PACKETS = {
+  all: msg("All", { $context: "pull request filter" }),
+  "needs-me": msg("Needs me", { $context: "review packet filter" }),
 };
 const resolveOptions = <Key extends string>(
   options: Readonly<Record<Key, string>>,
@@ -184,6 +189,9 @@ export function usePullRequestListFilters(props: {
       case "sort":
         props.onChange({ ...value, sort: next as PullRequestListControls["sort"] });
         break;
+      case "packet":
+        props.onChange({ ...value, packet: next === "needs-me" ? next : undefined });
+        break;
       case "project": {
         const project = projects.find(
           (project) => JSON.stringify([project.environmentId, project.id]) === next,
@@ -255,6 +263,7 @@ export function usePullRequestListFilters(props: {
     Number(Boolean(value.filters.draft)) +
     Number(Boolean(value.filters.review)) +
     Number(Boolean(value.filters.checks)) +
+    Number(Boolean(value.packet)) +
     Number(Boolean(value.projectId));
   const more: MenuProps["actions"] = [
     {
@@ -277,6 +286,13 @@ export function usePullRequestListFilters(props: {
         ? m(CHECKS_TITLES[value.filters.checks])
         : m(msg("Checks", { $context: "filter menu" })),
       subactions: choices("checks", resolveOptions(CHECKS, m), value.filters.checks ?? "all"),
+    },
+    {
+      id: "packets",
+      title: value.packet
+        ? m(PACKETS[value.packet])
+        : m(msg("Review packet", { $context: "pull request filter" })),
+      subactions: choices("packet", resolveOptions(PACKETS, m), value.packet ?? "all"),
     },
     {
       id: "projects",

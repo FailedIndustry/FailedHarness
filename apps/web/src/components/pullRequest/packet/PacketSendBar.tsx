@@ -17,7 +17,7 @@ import { Select, SelectItem, SelectPopup, SelectTrigger } from "../../ui/select"
 import { Spinner } from "../../ui/spinner";
 import { toastManager } from "../../ui/toast";
 import { usePacketComments } from "./PacketComments";
-import { chooseSendTarget } from "./packetComments.logic";
+import { chooseSendTarget } from "@t3tools/client-runtime/review-packet-comments";
 
 export interface PacketCheckout {
   readonly allowed: boolean;

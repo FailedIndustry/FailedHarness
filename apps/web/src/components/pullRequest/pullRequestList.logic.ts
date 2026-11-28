@@ -27,11 +27,9 @@ import {
   compareByRecency,
   hasLineCounts,
   rankByMergeReadiness,
-  reviewStanding,
   type ReviewQueuePacket,
-  type ReviewStanding,
 } from "@t3tools/shared/reviewQueue";
-import type { PullRequestListSort, PullRequestPacketFilter } from "./pullRequestListPreferences";
+import type { PullRequestListSort } from "./pullRequestListPreferences";
 
 export interface EnvironmentPullRequestEntry extends PullRequestListEntry {
   readonly environmentId: EnvironmentId;
@@ -780,36 +778,6 @@ export function rankPullRequestsByMergeReadiness<Entry extends PullRequestListEn
   hasMeasuredSize: (entry: Entry) => boolean = hasLineCounts,
 ): ReadonlyArray<Entry> {
   return rankByMergeReadiness(entries, () => null, hasMeasuredSize);
-}
-
-const internedStandings = new Map<string, ReviewStanding>();
-
-/**
- * What a row says about its packet: nothing without one or once closed. Equal standings are one
- * object, so memoized rows skip re-rendering when the review signal changes another row.
- */
-export function pullRequestRowStanding(
-  entry: PullRequestListEntry,
-  packet: ReviewQueuePacket | null,
-): ReviewStanding | undefined {
-  if (packet === null) return undefined;
-  const standing = reviewStanding(entry, packet);
-  if (standing.standing === "closed") return undefined;
-  const key = JSON.stringify(standing);
-  const held = internedStandings.get(key);
-  if (held !== undefined) return held;
-  internedStandings.set(key, standing);
-  return standing;
-}
-
-/** "Needs me" keeps the changes waiting on the reviewer: their move, or ready to review. */
-export function matchesPullRequestPacketFilter(
-  standing: ReviewStanding | undefined,
-  filter: PullRequestPacketFilter | undefined,
-): boolean {
-  return (
-    filter === undefined || standing?.standing === "your-move" || standing?.standing === "ready"
-  );
 }
 
 export const comparePullRequestsByRecency: (

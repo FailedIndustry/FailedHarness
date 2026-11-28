@@ -1,5 +1,15 @@
-import { WS_METHODS, isUnknownUnionMember, type ReviewCommentThread } from "@t3tools/contracts";
-import { Atom } from "effect/reactivity";
+import {
+  REVIEW_COMMENT_LIMITS,
+  WS_METHODS,
+  isUnknownUnionMember,
+  type EnvironmentId,
+  type ReviewCommentCounts,
+  type ReviewCommentListResult,
+  type ReviewCommentThread,
+  type ReviewPacketChangeRef,
+} from "@t3tools/contracts";
+import type * as Cause from "effect/Cause";
+import { AsyncResult, Atom } from "effect/reactivity";
 
 import type { EnvironmentRegistry } from "../connection/registry.ts";
 import {
@@ -52,14 +62,22 @@ export function createReviewCommentEnvironmentAtoms<R, E>(
     mode: "serial" as const,
     key: ({ environmentId }: { readonly environmentId: string }) => environmentId,
   };
+  const comments = createEnvironmentRpcQueryAtomFamily(runtime, {
+    label: "environment-data:review:comments",
+    tag: WS_METHODS.reviewCommentsList,
+    refreshTrigger: ({ environmentId }) => changes({ environmentId, input: {} }),
+  });
   return {
     changes,
     /** A change's comment threads in creation order, with state, `outdated` and counts. */
-    comments: createEnvironmentRpcQueryAtomFamily(runtime, {
-      label: "environment-data:review:comments",
-      tag: WS_METHODS.reviewCommentsList,
-      refreshTrigger: ({ environmentId }) => changes({ environmentId, input: {} }),
-    }),
+    comments,
+    /** Every comment of a change, page after page; key it with `changeCommentsKey`. */
+    changeComments: Atom.family((key: string) =>
+      Atom.make((get) => readChangeComments(key, (input) => get(comments(input)))).pipe(
+        Atom.setIdleTTL(60_000),
+        Atom.withLabel(`environment-data:review:change-comments:${key}`),
+      ),
+    ),
     /** Changes with stored packets, each with its comment counts by state. */
     changeList: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:review:change-list",
@@ -114,6 +132,88 @@ export function createReviewCommentEnvironmentAtoms<R, E>(
       scheduler,
       concurrency: serialPerEnvironment,
     }),
+  };
+}
+
+/** Pages a packet reads before it stops; one send delivers at most 50 comments anyway. */
+const MAX_COMMENT_PAGES = 8;
+
+export interface ChangeComments {
+  readonly threads: ReadonlyArray<ReviewCommentThread>;
+  readonly counts: ReviewCommentCounts;
+  readonly latestHead: string | null;
+  /** The oldest page's arrival on this client's clock. */
+  readonly updatedAt: number;
+  /** False when the change has more comments than this client reads. */
+  readonly complete: boolean;
+}
+
+export interface ChangeCommentsView {
+  readonly data: ChangeComments | null;
+  readonly waiting: boolean;
+  readonly failure: Cause.Cause<unknown> | null;
+}
+
+export const NO_CHANGE_COMMENTS: ChangeCommentsView = { data: null, waiting: false, failure: null };
+
+/** The `changeComments` key of a change; only the change's own fields count. */
+export const changeCommentsKey = (environmentId: EnvironmentId, change: ReviewPacketChangeRef) =>
+  JSON.stringify({
+    environmentId,
+    change: { host: change.host, repository: change.repository, branch: change.branch },
+  });
+
+function readChangeComments(
+  key: string,
+  read: (input: {
+    readonly environmentId: EnvironmentId;
+    readonly input: ReviewPacketChangeRef & { readonly limit: number; readonly cursor?: string };
+  }) => AsyncResult.AsyncResult<ReviewCommentListResult, unknown>,
+): ChangeCommentsView {
+  const { environmentId, change } = JSON.parse(key) as {
+    readonly environmentId: EnvironmentId;
+    readonly change: ReviewPacketChangeRef;
+  };
+  const threads: Array<ReviewCommentThread> = [];
+  let first: { readonly counts: ReviewCommentCounts; readonly latestHead: string | null } | null =
+    null;
+  let updatedAt = Number.POSITIVE_INFINITY;
+  let waiting = false;
+  let cursor: string | null = null;
+  for (let page = 0; page < MAX_COMMENT_PAGES; page += 1) {
+    const result = read({
+      environmentId,
+      input: {
+        ...change,
+        limit: REVIEW_COMMENT_LIMITS.pageSize,
+        ...(cursor === null ? {} : { cursor }),
+      },
+    });
+    waiting ||= result.waiting;
+    const value: ReviewCommentListResult | null = AsyncResult.getOrElse(result, () => null);
+    if (value === null) {
+      return {
+        data: null,
+        waiting: true,
+        failure: result._tag === "Failure" ? result.cause : null,
+      };
+    }
+    if (result._tag === "Success") updatedAt = Math.min(updatedAt, result.timestamp);
+    first ??= { counts: value.counts, latestHead: value.latestHead };
+    threads.push(...value.comments);
+    cursor = value.nextCursor;
+    if (cursor === null) break;
+  }
+  return {
+    data: {
+      threads,
+      counts: first!.counts,
+      latestHead: first!.latestHead,
+      updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0,
+      complete: cursor === null,
+    },
+    waiting,
+    failure: null,
   };
 }
 

@@ -16,6 +16,7 @@ export function pullRequestViewMatches(
       controls.state,
       controls.involvement,
       controls.sort,
+      controls.packet,
       controls.projectId,
       controls.projectEnvironmentId,
       controls.filters.draft,

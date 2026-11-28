@@ -15,6 +15,8 @@ export function ThreadListFilters(props: {
   readonly selectedProjectKey: string | null;
   readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
   readonly onProjectChange: (projectKey: string | null) => void;
+  /** Present when the selected project's coordinator can be opened from here. */
+  readonly onOpenCoordinator?: (() => void) | undefined;
   /** List padding the scroller bleeds through so pills start where row content does. */
   readonly gutter: number;
 }) {
@@ -76,9 +78,19 @@ export function ThreadListFilters(props: {
             title: project.label,
             state: project.key === props.selectedProjectKey ? ("on" as const) : ("off" as const),
           })),
+          ...(props.onOpenCoordinator
+            ? [
+                {
+                  id: "coordinator",
+                  title: gt("Open coordinator"),
+                  image: "antenna.radiowaves.left.and.right",
+                },
+              ]
+            : []),
         ]}
         onSelect={(id) => {
-          if (id === "all") props.onProjectChange(null);
+          if (id === "coordinator") props.onOpenCoordinator?.();
+          else if (id === "all") props.onProjectChange(null);
           else {
             const project = props.projects.find(
               (candidate) => JSON.stringify(candidate.key) === id,

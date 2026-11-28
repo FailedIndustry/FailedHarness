@@ -8,6 +8,7 @@ import {
 } from "@t3tools/contracts";
 import {
   appendPullRequestListPage,
+  arrangePullRequestReviewQueue,
   DEFAULT_PR_LIST_CONTROLS,
   EMPTY_PULL_REQUEST_STATS_CACHE,
   filterPullRequestList,
@@ -345,6 +346,42 @@ describe("mobile PR scan and filters", () => {
     expect(pick(new Set(["server"]))).toEqual(["server"]);
     expect(pick(new Set(["laptop", "server"]))).toEqual(["laptop"]);
     expect(pick(new Set())).toEqual(["laptop"]);
+  });
+});
+
+describe("review queue on the mobile PR list", () => {
+  const environmentId = EnvironmentId.make("env");
+  const rows = [1, 2, 3].map((number) => ({
+    ...entry(number),
+    environmentId,
+    headSha: "a".repeat(40),
+  }));
+  const packets = new Map([
+    [1, { head: "a".repeat(40), verdict: "pass" as const, comments: undefined }],
+    [
+      3,
+      {
+        head: "a".repeat(40),
+        verdict: "pass" as const,
+        comments: { pending: 1, open: 0, answered: 0, resolved: 0, unsent: 1 },
+      },
+    ],
+  ]);
+  const packetOf = (row: (typeof rows)[number]) => packets.get(row.number) ?? null;
+  const numbers = (list: readonly { readonly number: number }[]) => list.map((row) => row.number);
+
+  it("ranks by the queue under Merge readiness, and keeps a search's own order", () => {
+    const ready = { ...DEFAULT_PR_LIST_CONTROLS, sort: "ready" as const };
+    expect(numbers(arrangePullRequestReviewQueue(rows, ready, "", packetOf))).toEqual([3, 1, 2]);
+    expect(numbers(arrangePullRequestReviewQueue(rows, ready, "bag", packetOf))).toEqual([1, 2, 3]);
+    expect(
+      numbers(arrangePullRequestReviewQueue(rows, DEFAULT_PR_LIST_CONTROLS, "", packetOf)),
+    ).toEqual([1, 2, 3]);
+  });
+
+  it('keeps only what waits on the reviewer under "Needs me", in any sort', () => {
+    const needsMe = { ...DEFAULT_PR_LIST_CONTROLS, packet: "needs-me" as const };
+    expect(numbers(arrangePullRequestReviewQueue(rows, needsMe, "", packetOf))).toEqual([1, 3]);
   });
 });
 

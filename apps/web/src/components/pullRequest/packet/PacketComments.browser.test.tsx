@@ -92,7 +92,7 @@ import { CommentThreadList, PacketCommentsProvider, usePacketComments } from "./
 import { PacketMediaRow } from "./PacketMedia";
 import { PacketMediaViewer } from "./PacketMediaViewer";
 import { PacketSendBar } from "./PacketSendBar";
-import { packetVisuals } from "./reviewPacket.logic";
+import { packetVisuals } from "@t3tools/client-runtime/review-packet";
 
 const packet = {
   schema: 1,

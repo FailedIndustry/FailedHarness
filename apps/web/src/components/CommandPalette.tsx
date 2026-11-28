@@ -1887,6 +1887,7 @@ function OpenCommandPaletteDialog(props: {
       title: gt("Open coordinator"),
       description: currentProjectGroup.displayName,
       icon: <TowerControlIcon className={ITEM_ICON_CLASS} />,
+      shortcutCommand: "project.openCoordinator",
       run: async () => openProjectCoordinator(contextualProjectRef),
     });
   }

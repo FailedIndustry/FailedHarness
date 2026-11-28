@@ -3,6 +3,8 @@ import { ComponentCatalogScreen } from "./features/development/ComponentCatalogS
 import { PullRequestGuideStopScreen } from "./features/pull-requests/guide/PullRequestGuideScreen";
 import { PullRequestInlineCommentScreen } from "./features/pull-requests/PullRequestInlineCommentScreen";
 import { PullRequestDiscussionScreen } from "./features/pull-requests/PullRequestDiscussionScreen";
+import { PullRequestPacketCodeScreen } from "./features/pull-requests/packet/PullRequestPacketCodeScreen";
+import { PullRequestPacketCommentScreen } from "./features/pull-requests/packet/PullRequestPacketCommentScreen";
 import { createWorkspaceStackNavigator } from "./features/layout/createWorkspaceStackNavigator";
 import {
   createPathConfigForStaticNavigation,
@@ -623,6 +625,14 @@ const RootStackConfig = createWorkspaceStackNavigator({
     }),
     PullRequestInlineComment: createNativeStackScreen({
       screen: PullRequestInlineCommentScreen,
+      options: sheetRoute({ detent: 0.75, android: "fullScreen" }),
+    }),
+    PullRequestPacketCode: createNativeStackScreen({
+      screen: PullRequestPacketCodeScreen,
+      options: pageRoute(),
+    }),
+    PullRequestPacketComment: createNativeStackScreen({
+      screen: PullRequestPacketCommentScreen,
       options: sheetRoute({ detent: 0.75, android: "fullScreen" }),
     }),
     PullRequestReview: createNativeStackScreen({

@@ -6,7 +6,7 @@ import {
   packetForPullRequest,
   packetVisuals,
   pathspecFilter,
-} from "./reviewPacket.logic";
+} from "./reviewPacket.ts";
 
 const media = (char: string) => `sha256:${char.repeat(64)}`;
 

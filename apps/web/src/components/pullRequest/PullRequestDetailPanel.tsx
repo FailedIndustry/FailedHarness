@@ -180,7 +180,7 @@ import {
 import { resolveFilterOptions } from "./pullRequestListOptions";
 import { PullRequestGuideTab } from "./PullRequestGuideTab";
 import { PullRequestPacketTab } from "./packet/PullRequestPacketTab";
-import { packetForPullRequest } from "./packet/reviewPacket.logic";
+import { packetForPullRequest } from "@t3tools/client-runtime/review-packet";
 import { guideRunKey, useGuideRunStore } from "./guide/guideRunStore";
 import { useReviewGuideWriter } from "./guide/useReviewGuideWriter";
 

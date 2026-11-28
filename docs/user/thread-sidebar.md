@@ -23,7 +23,7 @@ Threads don't require a project. Pick **No project** (or press `mod+alt+n` on we
 
 ### Hand work to the project coordinator
 
-Each project can have one **Coordinator**: a thread you talk to instead of opening threads yourself. Open it from the command palette (**Open coordinator**), the tower icon beside a project in the sidebar's project filter, or a project folder's menu. It is pinned and marked with the same icon in the thread list.
+Each project can have one **Coordinator**: a thread you talk to instead of opening threads yourself. Open it from the command palette (**Open coordinator**), the tower icon beside a project in the sidebar's project filter, or a project folder's menu. On mobile, filter the thread list to a project and choose **Open coordinator** from the project filter or the list options menu. It is pinned and marked with the same icon in the thread list.
 
 - **Ask for work**: The coordinator starts a new worktree thread for each request and passes your words on unchanged, under a short note on which branch to start from and which open pull requests touch the same folders. A request that builds on an open change goes up as a pull request stacked on it; a follow-up to an existing change goes to the thread already working on it.
 - **Ask where things stand**: It answers from your [review queue](./source-control.md#your-review-queue): what needs you, what is with agents, and what is ready to go in.

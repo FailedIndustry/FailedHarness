@@ -39,6 +39,8 @@ export function buildHomeListFilterMenuItems(
     readonly selectedProjectKey: string | null;
     readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
     readonly onProjectChange: (projectKey: string | null) => void;
+    /** Present when the selected project's coordinator can be opened from here. */
+    readonly onOpenCoordinator?: (() => void) | undefined;
   },
   resolve: MessageResolver = m,
 ): AppBarMenuItem[] {
@@ -83,6 +85,16 @@ export function buildHomeListFilterMenuItems(
           onPress: () => props.onProjectChange(project.key),
         })),
       ],
+    });
+  }
+
+  if (props.onOpenCoordinator) {
+    items.push({
+      id: "coordinator",
+      title: resolve(msg("Open coordinator")),
+      subtitle: resolve(msg("Hand this project's work to one thread")),
+      icon: "antenna.radiowaves.left.and.right",
+      onPress: props.onOpenCoordinator,
     });
   }
 

@@ -1,8 +1,9 @@
 import type { PullRequestAction } from "@t3tools/contracts";
 import type { ReviewStanding } from "@t3tools/shared/reviewQueue";
+import { reviewStandingNote } from "@t3tools/shared/reviewQueueCopy";
 import { contextMenuSourceOf } from "../../contextMenuSource";
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
-import { T, useGT } from "gt-react";
+import { T, useMessages } from "gt-react";
 import {
   BotIcon,
   ClipboardCheckIcon,
@@ -76,27 +77,9 @@ const PAGE_ROW_CLASS = "px-3 py-2.5";
 
 /** One line on where the change stands in review, in words the reviewer can act on. */
 function PullRequestReviewStanding({ review }: { review: ReviewStanding }) {
-  const gt = useGT();
-  const { standing, unsent, open, answered, behind, verdict } = review;
-  if (standing === "no-packet" || standing === "closed") return null;
-  const text =
-    standing === "your-move"
-      ? answered > 0 && unsent > 0
-        ? gt("{answered} answered · {unsent} not sent", { answered, unsent })
-        : answered > 0
-          ? gt("{count} answered", { count: answered })
-          : gt("{count} not sent", { count: unsent })
-      : standing === "ready"
-        ? gt("Ready to review")
-        : standing === "with-agent"
-          ? behind
-            ? open > 0
-              ? gt("Packet behind · {count} open", { count: open })
-              : gt("Packet behind")
-            : gt("With the agent · {count} open", { count: open })
-          : verdict === "blocked"
-            ? gt("Blocked", { $context: "review packet verdict" })
-            : gt("Packet failed");
+  const note = reviewStandingNote(review, useMessages());
+  if (note === null) return null;
+  const { standing, text } = note;
   const Icon =
     standing === "your-move"
       ? MessageSquareReplyIcon

@@ -607,6 +607,14 @@
       "types": "./src/sourceControlClients.ts",
       "default": "./src/sourceControlClients.ts"
     },
+    "./review-packet": {
+      "types": "./src/reviewPacket.ts",
+      "default": "./src/reviewPacket.ts"
+    },
+    "./review-packet-comments": {
+      "types": "./src/reviewPacketComments.ts",
+      "default": "./src/reviewPacketComments.ts"
+    },
     "./review-guide-tour": {
       "types": "./src/reviewGuideTour.ts",
       "default": "./src/reviewGuideTour.ts"

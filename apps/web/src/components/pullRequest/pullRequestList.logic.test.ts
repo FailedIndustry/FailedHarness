@@ -6,7 +6,6 @@ import type {
   PullRequestListEntry,
   PullRequestSummary,
 } from "@t3tools/contracts";
-import type { ReviewCommentCounts } from "@t3tools/contracts";
 import type { ReviewQueuePacket } from "@t3tools/shared/reviewQueue";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -37,8 +36,6 @@ import {
   rankPullRequestMatches,
   rankPullRequestsBlockedOnAuthor,
   rankPullRequestsByMergeReadiness,
-  matchesPullRequestPacketFilter,
-  pullRequestRowStanding,
   sortPullRequestGroups,
   resolveQueryEnvironmentIds,
   resolveSelectedEnvironmentId,
@@ -373,34 +370,6 @@ describe("default merge-readiness ranking", () => {
 
     expect(sorted.map((group) => group.key)).toEqual(["authored", "others"]);
     expect(sorted.flatMap((group) => group.entries).map((row) => row.number)).toEqual([2, 1, 3]);
-  });
-});
-
-describe("review packets on list rows", () => {
-  const packet = (comments: Partial<ReviewCommentCounts>): ReviewQueuePacket => ({
-    head: "c".repeat(40),
-    verdict: "pass",
-    comments: { pending: 0, open: 0, answered: 0, resolved: 0, unsent: 0, ...comments },
-  });
-
-  it("says nothing without a packet or once closed, and shares one object per standing", () => {
-    expect(pullRequestRowStanding(entry({ number: 1 }), null)).toBeUndefined();
-    expect(
-      pullRequestRowStanding(entry({ number: 1, state: "merged" }), packet({})),
-    ).toBeUndefined();
-    expect(pullRequestRowStanding(entry({ number: 1 }), packet({ answered: 2 }))).toBe(
-      pullRequestRowStanding(entry({ number: 2 }), packet({ answered: 2 })),
-    );
-  });
-
-  it('keeps "Needs me" to the reviewer\'s move and ready changes', () => {
-    const standing = (comments: Partial<ReviewCommentCounts>) =>
-      pullRequestRowStanding(entry({ number: 1 }), packet(comments));
-    expect(matchesPullRequestPacketFilter(standing({ unsent: 1 }), "needs-me")).toBe(true);
-    expect(matchesPullRequestPacketFilter(standing({}), "needs-me")).toBe(true);
-    expect(matchesPullRequestPacketFilter(standing({ open: 1 }), "needs-me")).toBe(false);
-    expect(matchesPullRequestPacketFilter(undefined, "needs-me")).toBe(false);
-    expect(matchesPullRequestPacketFilter(undefined, undefined)).toBe(true);
   });
 });
 

@@ -9,10 +9,10 @@ import {
   type ReviewRegion,
   type ThreadId,
 } from "@t3tools/contracts";
-import { indexReviewComments } from "@t3tools/client-runtime/state/review-comments";
-import { msg } from "gt-react";
+import { mFallback, msg } from "gt-i18n";
+import type { MFunctionType } from "gt-i18n/types";
 
-import type { MessageResolver } from "~/i18n/messages";
+import { indexReviewComments } from "./state/reviewComments.ts";
 
 export interface Fraction {
   readonly x: number;
@@ -352,7 +352,10 @@ export function chooseSendTarget(
 const shortSha = (sha: string) => sha.slice(0, 7);
 
 /** Where a comment points, in words, for a comment whose anchor left the latest packet. */
-export function describeAnchor(thread: ReviewCommentThread, resolve: MessageResolver): string {
+export function describeAnchor(
+  thread: ReviewCommentThread,
+  resolve: MFunctionType = mFallback,
+): string {
   const anchor = thread.anchor;
   if (isUnknownUnionMember(anchor)) {
     return resolve(msg("A kind of comment this app cannot show yet"));

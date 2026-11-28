@@ -418,6 +418,10 @@ import {
   useSystemComposerBanners,
 } from "./chat/useSystemComposerBanners";
 import { useDraftHeroLayoutTransition } from "./chat/useDraftHeroLayoutTransition";
+import {
+  canOpenProjectCoordinator,
+  useOpenProjectCoordinator,
+} from "../hooks/useOpenProjectCoordinator";
 import { useLocalDispatchState } from "./chat/useLocalDispatchState";
 import { draftFanoutSelectionsAtom, draftSendState } from "./chat/chatViewSend";
 import {
@@ -1228,6 +1232,7 @@ export default function ChatView(props: ChatViewProps) {
       ? scopeProjectRef(activeThreadEnvironmentId, activeThreadProjectId)
       : null;
   const activeProject = useProject(activeProjectRef);
+  const openProjectCoordinator = useOpenProjectCoordinator();
   const activeProjectSettings = resolveProjectSettings(
     settings,
     activeProject?.id ?? null,
@@ -2967,6 +2972,10 @@ export default function ChatView(props: ChatViewProps) {
       },
       "thread.copyReference": ({ event }) => {
         if (!event.repeat) copyActiveThreadReference();
+      },
+      "project.openCoordinator": ({ event }) => {
+        if (activeProjectRef === null || !canOpenProjectCoordinator(activeProjectRef)) return false;
+        if (!event.repeat) void openProjectCoordinator(activeProjectRef);
       },
       "chat.find": () => {
         if (!isServerThread || serverConfig?.threadFind !== true || activeThreadKey === null)

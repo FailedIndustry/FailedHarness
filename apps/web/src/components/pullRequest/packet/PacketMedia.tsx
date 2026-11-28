@@ -8,8 +8,8 @@ import { useAssetUrlState } from "~/assets/assetUrls";
 import { MediaVideoPlayer } from "../../media/MediaVideoPlayer";
 import { usePacketComments } from "./PacketComments";
 import { reviewMediaResource } from "./PacketMediaViewer";
-import { threadsUnder } from "./packetComments.logic";
-import { PACKET_LEAD_MEDIA, type PacketVisual } from "./reviewPacket.logic";
+import { threadsUnder } from "@t3tools/client-runtime/review-packet-comments";
+import { PACKET_LEAD_MEDIA, type PacketVisual } from "@t3tools/client-runtime/review-packet";
 
 const TILE_CLASS_NAME =
   "relative h-24 aspect-video shrink-0 overflow-hidden rounded-md border border-border/60 bg-muted/40";

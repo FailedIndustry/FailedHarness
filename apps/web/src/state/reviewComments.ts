@@ -1,19 +1,19 @@
 import { useAtomValue } from "@effect/atom-react";
-import { createReviewCommentEnvironmentAtoms } from "@t3tools/client-runtime/state/review-comments";
+import {
+  changeCommentsKey,
+  createReviewCommentEnvironmentAtoms,
+  NO_CHANGE_COMMENTS,
+  type ChangeCommentsView,
+} from "@t3tools/client-runtime/state/review-comments";
 import { indexReviewPackets, type ReviewPacketIndex } from "@t3tools/shared/reviewQueue";
 import {
-  REVIEW_COMMENT_LIMITS,
   REVIEW_PACKET_LIST_MAX_LIMIT,
   type EnvironmentId,
-  type ReviewCommentCounts,
-  type ReviewCommentListResult,
-  type ReviewCommentThread,
   type ReviewPacketChangeRef,
   type ReviewPacketChangeSummary,
   type ReviewRegion,
 } from "@t3tools/contracts";
-import type * as Cause from "effect/Cause";
-import { AsyncResult, Atom } from "effect/reactivity";
+import { Atom } from "effect/reactivity";
 import { create } from "zustand";
 
 import { connectionAtomRuntime } from "../connection/runtime";
@@ -21,79 +21,12 @@ import { createMergedEnvironmentQuery } from "./pullRequests";
 
 export const reviewCommentEnvironment = createReviewCommentEnvironmentAtoms(connectionAtomRuntime);
 
-/** Pages a packet reads before it stops; one send delivers at most 50 comments anyway. */
-const MAX_PAGES = 8;
+export type {
+  ChangeComments,
+  ChangeCommentsView,
+} from "@t3tools/client-runtime/state/review-comments";
 
-export interface ChangeComments {
-  readonly threads: ReadonlyArray<ReviewCommentThread>;
-  readonly counts: ReviewCommentCounts;
-  readonly latestHead: string | null;
-  /** The oldest page's arrival on this client's clock. */
-  readonly updatedAt: number;
-  /** False when the change has more comments than this client reads. */
-  readonly complete: boolean;
-}
-
-export interface ChangeCommentsView {
-  readonly data: ChangeComments | null;
-  readonly waiting: boolean;
-  readonly failure: Cause.Cause<unknown> | null;
-}
-
-/** Every comment of a change, page after page, each page refreshing on the review signal. */
-const changeCommentsAtom = Atom.family((key: string) =>
-  Atom.make((get): ChangeCommentsView => {
-    const { environmentId, change } = JSON.parse(key) as {
-      readonly environmentId: EnvironmentId;
-      readonly change: ReviewPacketChangeRef;
-    };
-    const threads: Array<ReviewCommentThread> = [];
-    let first: { readonly counts: ReviewCommentCounts; readonly latestHead: string | null } | null =
-      null;
-    let updatedAt = Number.POSITIVE_INFINITY;
-    let waiting = false;
-    let cursor: string | null = null;
-    for (let page = 0; page < MAX_PAGES; page += 1) {
-      const result: AsyncResult.AsyncResult<ReviewCommentListResult, unknown> = get(
-        reviewCommentEnvironment.comments({
-          environmentId,
-          input: {
-            ...change,
-            limit: REVIEW_COMMENT_LIMITS.pageSize,
-            ...(cursor === null ? {} : { cursor }),
-          },
-        }),
-      );
-      waiting ||= result.waiting;
-      const value: ReviewCommentListResult | null = AsyncResult.getOrElse(result, () => null);
-      if (value === null) {
-        return {
-          data: null,
-          waiting: true,
-          failure: result._tag === "Failure" ? result.cause : null,
-        };
-      }
-      if (result._tag === "Success") updatedAt = Math.min(updatedAt, result.timestamp);
-      first ??= { counts: value.counts, latestHead: value.latestHead };
-      threads.push(...value.comments);
-      cursor = value.nextCursor;
-      if (cursor === null) break;
-    }
-    return {
-      data: {
-        threads,
-        counts: first!.counts,
-        latestHead: first!.latestHead,
-        updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0,
-        complete: cursor === null,
-      },
-      waiting,
-      failure: null,
-    };
-  }).pipe(Atom.setIdleTTL(60_000), Atom.withLabel(`web-review-comments:${key}`)),
-);
-
-const NO_COMMENTS = Atom.make<ChangeCommentsView>({ data: null, waiting: false, failure: null });
+const NO_COMMENTS = Atom.make<ChangeCommentsView>(NO_CHANGE_COMMENTS);
 
 export function useChangeComments(
   environmentId: EnvironmentId,
@@ -102,12 +35,7 @@ export function useChangeComments(
   return useAtomValue(
     change === null
       ? NO_COMMENTS
-      : changeCommentsAtom(
-          JSON.stringify({
-            environmentId,
-            change: { host: change.host, repository: change.repository, branch: change.branch },
-          }),
-        ),
+      : reviewCommentEnvironment.changeComments(changeCommentsKey(environmentId, change)),
   );
 }
 

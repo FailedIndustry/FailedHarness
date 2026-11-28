@@ -3,8 +3,10 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   indexReviewPackets,
+  matchesReviewQueueFilter,
   rankReviewQueue,
   reviewPacketFor,
+  reviewRowStanding,
   reviewStanding,
   type ReviewQueuePacket,
   type ReviewQueuePullRequest,
@@ -199,5 +201,27 @@ describe("joining pull requests to stored packets", () => {
         number: 1,
       }),
     ).toBeNull();
+  });
+});
+
+describe("review packets on list rows", () => {
+  it("says nothing without a packet or once closed, and shares one object per standing", () => {
+    expect(reviewRowStanding(pullRequest({ number: 1 }), null)).toBeUndefined();
+    expect(
+      reviewRowStanding(pullRequest({ number: 1, state: "merged" }), packet()),
+    ).toBeUndefined();
+    expect(reviewRowStanding(pullRequest({ number: 1 }), packet("pass", { answered: 2 }))).toBe(
+      reviewRowStanding(pullRequest({ number: 2 }), packet("pass", { answered: 2 })),
+    );
+  });
+
+  it('keeps "Needs me" to the reviewer\'s move and ready changes', () => {
+    const standing = (comments: Partial<ReviewCommentCounts>) =>
+      reviewRowStanding(pullRequest({ number: 1 }), packet("pass", comments));
+    expect(matchesReviewQueueFilter(standing({ unsent: 1 }), "needs-me")).toBe(true);
+    expect(matchesReviewQueueFilter(standing({}), "needs-me")).toBe(true);
+    expect(matchesReviewQueueFilter(standing({ open: 1 }), "needs-me")).toBe(false);
+    expect(matchesReviewQueueFilter(undefined, "needs-me")).toBe(false);
+    expect(matchesReviewQueueFilter(undefined, undefined)).toBe(true);
   });
 });
