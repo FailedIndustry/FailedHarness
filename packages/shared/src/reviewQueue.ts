@@ -84,7 +84,7 @@ export function reviewStanding(
 }
 
 /** The host's own readiness, best first: what the Merge readiness sort ranks by without packets. */
-export function mergeReadinessTier(pullRequest: ReviewQueuePullRequest): number {
+function mergeReadinessTier(pullRequest: ReviewQueuePullRequest): number {
   if (pullRequest.mergeability === "conflicting") return 4;
   if (pullRequest.state !== "open") return 3;
   if (pullRequest.isDraft) return 2;
@@ -197,4 +197,56 @@ function baseFirst<Entry extends ReviewQueuePullRequest>(run: ReadonlyArray<Entr
   };
   for (const entry of run) place(entry, new Set());
   return out;
+}
+
+/** What the Merge readiness sort reads of a listed pull request beyond the queue's own fields. */
+export interface ReviewQueueListEntry extends ReviewQueuePullRequest {
+  readonly additions: number;
+  readonly deletions: number;
+  readonly updatedAt: string;
+}
+
+const sortableTime = (iso: string) => {
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? ms : null;
+};
+
+/** Most recently updated first; unparseable times last. */
+export function compareByRecency(left: ReviewQueueListEntry, right: ReviewQueueListEntry): number {
+  const leftUpdated = sortableTime(left.updatedAt);
+  const rightUpdated = sortableTime(right.updatedAt);
+  const measured = Number(leftUpdated === null) - Number(rightUpdated === null);
+  if (measured !== 0) return measured;
+  if (leftUpdated === null || rightUpdated === null) return 0;
+  return rightUpdated - leftUpdated;
+}
+
+export const hasLineCounts = (entry: ReviewQueueListEntry) => entry.additions + entry.deletions > 0;
+
+/** Measured sizes first, smaller first, then the most recently updated. */
+const smallestMeasuredFirst =
+  <Entry extends ReviewQueueListEntry>(hasMeasuredSize: (entry: Entry) => boolean) =>
+  (left: Entry, right: Entry) => {
+    const measured = Number(hasMeasuredSize(right)) - Number(hasMeasuredSize(left));
+    const sized = left.additions + left.deletions - (right.additions + right.deletions);
+    return measured || sized || compareByRecency(left, right);
+  };
+
+/**
+ * The Merge readiness order: the host's readiness tiers until some listed pull request has a
+ * packet, then the review queue. The pull request list and `read_review_queue` both sort with it.
+ */
+export function rankByMergeReadiness<Entry extends ReviewQueueListEntry>(
+  entries: ReadonlyArray<Entry>,
+  packetOf: (entry: Entry) => ReviewQueuePacket | null,
+  hasMeasuredSize: (entry: Entry) => boolean = hasLineCounts,
+): ReadonlyArray<Entry> {
+  const tieBreak = smallestMeasuredFirst(hasMeasuredSize);
+  if (!entries.some((entry) => packetOf(entry) !== null)) {
+    return [...entries].sort(
+      (left, right) =>
+        mergeReadinessTier(left) - mergeReadinessTier(right) || tieBreak(left, right),
+    );
+  }
+  return rankReviewQueue(entries, (entry) => reviewStanding(entry, packetOf(entry)), tieBreak);
 }

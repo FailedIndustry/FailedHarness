@@ -1,8 +1,9 @@
-import { assert, describe, it } from "@effect/vitest";
+import { assert, describe, expect, it } from "@effect/vitest";
 
 import {
   AGENT_FEEDBACK_INSTRUCTIONS,
   buildRuntimeInstructions,
+  COORDINATOR_INSTRUCTIONS,
   PULL_REQUEST_LINKING_INSTRUCTIONS,
 } from "./runtimeInstructions.ts";
 
@@ -153,5 +154,27 @@ describe("buildRuntimeInstructions", () => {
     assert.isAbove(shown, 0);
     assert.include(block, `\n- Not listed: ${128 - shown} more\n</workspace_folders>`);
     assert.isBelow(new TextEncoder().encode(block).length, 4000);
+  });
+
+  it("gives a project's coordinator its instructions and every other thread none", () => {
+    const base = {
+      runtimeMode: "full-access",
+      interactionMode: "default",
+      cwd: "/work/app",
+    } as const;
+    const plain = buildRuntimeInstructions({ harness: "Codex", runtimePolicy: base });
+    assert.notInclude(plain, "<project_coordinator>");
+    assert.equal(
+      buildRuntimeInstructions({
+        harness: "Codex",
+        runtimePolicy: { ...base, coordinator: false },
+      }),
+      plain,
+    );
+    assert.equal(
+      buildRuntimeInstructions({ harness: "Codex", runtimePolicy: { ...base, coordinator: true } }),
+      `${plain}\n\n${COORDINATOR_INSTRUCTIONS}`,
+    );
+    expect(COORDINATOR_INSTRUCTIONS).toMatchSnapshot();
   });
 });

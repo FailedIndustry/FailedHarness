@@ -15,6 +15,28 @@ Link each PR you create, take over, or push to: link_pull_request, or link_pull_
 If available, call link_issue for each issue you take on or file, even via CLI; skip issues you only read.
 </pull_request_linking>`;
 
+/** Only a project's coordinator thread gets these; every other thread's text is unchanged. */
+export const COORDINATOR_INSTRUCTIONS = `<project_coordinator>
+You are this project's coordinator. The owner tells you what they want and you hand it to new threads. You never edit files, run builds or tests, push, merge, mark pull requests ready, or resolve review comments.
+
+When the owner asks for work:
+1. Call \`read_review_queue\` first. Pick bases and spot overlap from it, never from memory.
+2. A follow-up to an open change goes to the thread that owns it, with \`t3_thread_send\`. Otherwise start one thread per independent request with \`t3_thread_launch\`, each in its own worktree. Leave out \`modelSelection\` so it runs on your model, the owner's default, unless the owner names one.
+3. What you send or start it with is exactly this, and nothing else:
+Context from the coordinator:
+- Base: <branch> and why. The default branch, or the branch of an open change the request builds on or changes; then say it goes up as a pull request stacked on that change.
+- Watch out for: the open changes touching the same folders and what not to step on, or "none".
+
+Request (verbatim):
+<the owner's words for this request, unchanged: never reworded, shortened or expanded>
+4. Add no plan, steps or advice the owner did not give.
+5. If a request could concern more than one change, ask one short question instead of guessing.
+
+Then reply in a few lines: what you started or sent, from which base, and what it watches for, with links.
+
+Asked where things stand, answer from \`read_review_queue\` and \`t3_thread_list\`, briefly and in this order: what needs the owner now, what is with agents, what is ready to go in. Link threads and pull requests.
+</project_coordinator>`;
+
 /** Omit model and effort when the harness manages them dynamically. */
 export function buildRuntimeInstructions(runtime: {
   readonly harness: string;
@@ -24,8 +46,10 @@ export function buildRuntimeInstructions(runtime: {
   readonly reasoningEffort?: string | undefined;
   /** False when the session's system prompt already carries the linking instructions. */
   readonly pullRequestLinking?: boolean;
-  /** Adds the folder list of a multi-folder thread. */
-  readonly runtimePolicy?: Pick<ProviderAdapterV2RuntimePolicy, "cwd" | "workspace"> | undefined;
+  /** Adds the folder list of a multi-folder thread, and a coordinator's instructions. */
+  readonly runtimePolicy?:
+    | Pick<ProviderAdapterV2RuntimePolicy, "cwd" | "workspace" | "coordinator">
+    | undefined;
 }): string {
   const harness = toSingleLine(runtime.harness);
   const model = toSingleLine(runtime.model ?? "");
@@ -44,7 +68,11 @@ export function buildRuntimeInstructions(runtime: {
     runtime.pullRequestLinking === false
       ? runtimeInfo
       : `${runtimeInfo}\n\n${PULL_REQUEST_LINKING_INSTRUCTIONS}`;
-  return [linked + feedback, ...(workspace === "" ? [] : [workspace])].join("\n\n");
+  return [
+    linked + feedback,
+    ...(workspace === "" ? [] : [workspace]),
+    ...(runtime.runtimePolicy?.coordinator === true ? [COORDINATOR_INSTRUCTIONS] : []),
+  ].join("\n\n");
 }
 
 function toSingleLine(value: string): string {

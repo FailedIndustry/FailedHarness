@@ -81,6 +81,8 @@ it("stamps authoritative provenance on commands that create threads or messages"
       workflow: "fix",
       step: "write",
     },
+    // Nor make a second coordinator past the server's one per project.
+    coordinator: true,
   };
 
   const stamped = ThreadManagementService.withCreationProvenance(command, {
@@ -95,6 +97,7 @@ it("stamps authoritative provenance on commands that create threads or messages"
   expect(stamped).not.toHaveProperty("delegatedFrom");
   expect(stamped).not.toHaveProperty("initialMessage");
   expect(stamped).not.toHaveProperty("workflowRun");
+  expect(stamped).not.toHaveProperty("coordinator");
 });
 
 const layerReceiptsTest = CommandReceiptStore.layer.pipe(

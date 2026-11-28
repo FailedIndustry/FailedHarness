@@ -249,6 +249,7 @@ import * as OrchestrationHttp from "./orchestration-v2/http.ts";
 import * as ProjectHttp from "./project/http.ts";
 import * as ReviewPacketHttp from "./review/http.ts";
 import * as ReviewCommentService from "./review/ReviewCommentService.ts";
+import * as ReviewQueueService from "./review/ReviewQueueService.ts";
 import * as ReviewPacketService from "./review/ReviewPacketService.ts";
 import * as ReviewComments from "./persistence/ReviewComments.ts";
 import * as ReviewPackets from "./persistence/ReviewPackets.ts";
@@ -937,6 +938,7 @@ const layerMakeRoutes = Layer.mergeAll(
   McpHttpServer.layer.pipe(
     Layer.provide(ProviderAdapterRegistry.layerFromProviderInstanceRegistry),
     Layer.provide(McpOAuth.layerMcpClientAuthenticator),
+    Layer.provide(ReviewQueueService.layer.pipe(Layer.provide(ProjectStore.layer))),
     Layer.provide(ProjectionStoreV2.layer),
   ),
   // Follows delegated tasks running in linked environments, including after a restart.

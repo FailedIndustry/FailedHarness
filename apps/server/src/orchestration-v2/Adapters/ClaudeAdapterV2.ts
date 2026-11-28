@@ -2587,6 +2587,8 @@ export function makeClaudeQueryOptions(input: {
   readonly cwd: string | null;
   /** The thread's other folders: listed in the system prompt and granted as directories. */
   readonly workspace?: ProviderAdapter.ProviderAdapterV2RuntimePolicy["workspace"];
+  /** The project's coordinator thread, whose system prompt says how to coordinate. */
+  readonly coordinator?: boolean;
   readonly attachmentsDir?: string;
   readonly settings?: ClaudeSettings;
   readonly promptSuggestions?: boolean;
@@ -2756,7 +2758,11 @@ export function makeClaudeQueryOptions(input: {
         buildRuntimeInstructions({
           harness: "Claude Code",
           agentFeedback,
-          runtimePolicy: { cwd: input.cwd, workspace: input.workspace },
+          runtimePolicy: {
+            cwd: input.cwd,
+            workspace: input.workspace,
+            coordinator: input.coordinator,
+          },
         }) +
           (input.mcpServers === undefined
             ? ""
@@ -14255,6 +14261,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             ...(turnInput.runtimePolicy.workspace === undefined
               ? {}
               : { workspace: turnInput.runtimePolicy.workspace }),
+            ...(turnInput.runtimePolicy.coordinator === true ? { coordinator: true } : {}),
             attachmentsDir,
             settings: adapterOptions.settings,
             // Delegated threads have no one typing, so they never ask for suggestions.

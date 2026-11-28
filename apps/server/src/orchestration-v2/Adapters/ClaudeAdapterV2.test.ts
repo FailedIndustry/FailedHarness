@@ -115,7 +115,10 @@ import {
 } from "../../provider/ClaudeCodeModelRoutes.ts";
 import { resolveProviderCatalog } from "../../provider/ModelManifest.ts";
 import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
-import { AGENT_FEEDBACK_INSTRUCTIONS } from "@t3tools/provider-core/server/runtimeInstructions";
+import {
+  AGENT_FEEDBACK_INSTRUCTIONS,
+  COORDINATOR_INSTRUCTIONS,
+} from "@t3tools/provider-core/server/runtimeInstructions";
 import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
 import type * as ProviderContinuationRequests from "@t3tools/provider-core/server/ProviderContinuationRequests";
 import {
@@ -456,6 +459,26 @@ describe("ClaudeAdapterV2 runtime query policy", () => {
     });
     assert.isUndefined(bare.plugins);
     assert.isNull(bare.extraArgs?.["plugin-dir"]);
+  });
+
+  it("appends the coordinator's instructions to its system prompt and to no other thread's", () => {
+    const append = (coordinator?: boolean) =>
+      (
+        ClaudeAdapterV2.makeClaudeQueryOptions({
+          modelSelection: CLAUDE_TEST_MODEL_SELECTION,
+          nativeThreadId: "native-coordinator",
+          resume: false,
+          cwd: "/workspace",
+          mcpServers: { "t3-code": { type: "http", url: "http://127.0.0.1/mcp" } },
+          ...(coordinator === undefined ? {} : { coordinator }),
+        }).systemPrompt as { readonly append?: string }
+      ).append ?? "";
+    const plain = append();
+    assert.notInclude(plain, "<project_coordinator>");
+    assert.equal(append(false), plain);
+    const coordinator = append(true);
+    assert.include(coordinator, COORDINATOR_INSTRUCTIONS);
+    assert.equal(coordinator.replace(`\n\n${COORDINATOR_INSTRUCTIONS}`, ""), plain);
   });
 
   it("gives delegated children Claude's subagent prompt cache TTL", () => {

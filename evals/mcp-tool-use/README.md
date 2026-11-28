@@ -142,6 +142,10 @@ pnpm mcp-tool-use --cases mcp-tool-use/cases/threads-vs-tasks.ndjson --samples 3
 
 These cases measure routing decisions with simulated tools, not delivered child work. The original PR's paid baseline found Sonnet starting a background native Agent for `tt-background-agent`; the routing fix is stacked separately in #27139. Historical model results and the unresolved top-level reviewer re-check wording are recorded in #27138.
 
+## Coordinator cases
+
+`cases/coordinator.ndjson` runs a project's coordinator thread (`setup.coordinator: true`, which adds T3's coordinator instructions) against a mocked `read_review_queue`. It checks that a request starts one worktree thread whose message is the context header and then the owner's words verbatim, that a follow-up to an open change goes to that change's thread, and that a status question is answered from the queue with the owner's move first. The control runs the same request in an ordinary thread, which must not start threads or read the queue. No paid run has been recorded yet.
+
 ## Secrets cases
 
 `cases/secrets.ndjson` checks how agents get a secret only the user has: a login, PIN, pairing code, token or API key. Each case cites a finding of the October 2026 `request_secret` field review (`secret-field-2026-10`, root causes RC1–RC6) and describes its episode; prompts, worlds and secret values are authored Acme data, and every secret value is a fabricated fixture.

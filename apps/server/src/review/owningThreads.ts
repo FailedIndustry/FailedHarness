@@ -10,7 +10,7 @@ const decodeBranchThreads = Schema.decodeUnknownEffect(
 
 /**
  * Live threads whose checkout or worktree is on `branch`, most recently active first. Side chats
- * share their parent's checkout and never own it.
+ * share their parent's checkout and never own it, and a project's coordinator edits nothing.
  */
 export const listBranchThreads = Effect.fn("listBranchThreads")(function* (branch: string) {
   const sql = yield* SqlClient.SqlClient;
@@ -21,8 +21,53 @@ export const listBranchThreads = Effect.fn("listBranchThreads")(function* (branc
       AND deleted_at IS NULL
       AND archived_at IS NULL
       AND json_extract(payload_json, '$.lineage.sideChat') IS NOT 1
+      AND json_extract(payload_json, '$.coordinator') IS NOT 1
     ORDER BY updated_at DESC, thread_id ASC
     LIMIT 50
   `.pipe(NodeSqliteClient.readOnly);
   return yield* decodeBranchThreads(rows);
+});
+
+const decodeProjectBranchThreads = Schema.decodeUnknownEffect(
+  Schema.Array(
+    Schema.Struct({
+      id: ThreadId,
+      title: Schema.String,
+      branch: Schema.String,
+      running: Schema.Number,
+    }),
+  ),
+);
+
+/** `listBranchThreads` for many branches of one project at once, with whether each runs a turn. */
+export const listProjectBranchThreads = Effect.fn("listProjectBranchThreads")(function* (
+  projectId: ProjectId,
+  branches: ReadonlyArray<string>,
+) {
+  if (branches.length === 0) return [];
+  const sql = yield* SqlClient.SqlClient;
+  const rows = yield* sql`
+    SELECT
+      t.thread_id AS id,
+      t.title,
+      json_extract(t.payload_json, '$.branch') AS branch,
+      EXISTS (
+        SELECT 1 FROM orchestration_v2_projection_runs r
+        WHERE r.thread_id = t.thread_id
+          AND r.status IN ('preparing', 'queued', 'starting', 'running', 'waiting')
+      ) AS running
+    FROM orchestration_v2_projection_threads t
+    WHERE t.project_id = ${projectId}
+      AND json_extract(t.payload_json, '$.branch') IN ${sql.in(branches)}
+      AND t.deleted_at IS NULL
+      AND t.archived_at IS NULL
+      AND json_extract(t.payload_json, '$.lineage.sideChat') IS NOT 1
+      AND json_extract(t.payload_json, '$.coordinator') IS NOT 1
+    ORDER BY t.updated_at DESC, t.thread_id ASC
+    LIMIT 500
+  `.pipe(NodeSqliteClient.readOnly);
+  return (yield* decodeProjectBranchThreads(rows)).map((row) => ({
+    ...row,
+    running: row.running === 1,
+  }));
 });

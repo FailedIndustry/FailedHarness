@@ -536,6 +536,7 @@ export type ActiveThreadListEntry = Pick<
   | "settledAt"
   | "snoozedUntil"
   | "updatedAt"
+  | "coordinator"
 >;
 
 export interface OlderSettledThreadsQuery {
@@ -1988,6 +1989,7 @@ export function threadShellFromProjection(
     ...(projection.thread.workflowRun === undefined
       ? {}
       : { workflowRun: projection.thread.workflowRun }),
+    ...(projection.thread.coordinator === true ? { coordinator: true } : {}),
     latestRunId: latestRun?.id ?? null,
     latestRunRequestedAt: latestRun?.requestedAt ?? null,
     latestRunStartedAt: latestRun?.startedAt ?? null,
@@ -2309,6 +2311,7 @@ function shellFromState(input: {
     ...(input.state.thread.workflowRun === undefined
       ? {}
       : { workflowRun: input.state.thread.workflowRun }),
+    ...(input.state.thread.coordinator === true ? { coordinator: true } : {}),
     latestRunId: input.state.latestRunId,
     latestRunRequestedAt: input.state.latestRunRequestedAt,
     latestRunStartedAt: input.state.latestRunStartedAt,
@@ -9785,12 +9788,14 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
         readonly settled_override: string | null;
         readonly settled_at: string | null;
         readonly snoozed_until: string | null;
+        readonly coordinator: number | null;
       }>`
         SELECT
           t.thread_id,
           t.project_id,
           t.title,
           t.updated_at,
+          json_extract(t.payload_json, '$.coordinator') AS coordinator,
           json_extract(t.payload_json, '$.lineage.relationshipToParent') AS relationship_to_parent,
           json_extract(t.payload_json, '$.lineage.parentThreadId') AS parent_thread_id,
           json_extract(t.payload_json, '$.lineage.rootThreadId') AS root_thread_id,
@@ -9830,6 +9835,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
         settledAt: row.settled_at === null ? null : DateTime.makeUnsafe(row.settled_at),
         snoozedUntil: row.snoozed_until === null ? null : DateTime.makeUnsafe(row.snoozed_until),
         updatedAt: DateTime.makeUnsafe(row.updated_at),
+        ...(row.coordinator === 1 ? { coordinator: true } : {}),
       }));
     }, Effect.mapError(shellSnapshotReadError));
 

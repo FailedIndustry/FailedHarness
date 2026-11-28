@@ -75,6 +75,7 @@ import {
   FolderPlusIcon,
   PlusIcon,
   SettingsIcon,
+  TowerControlIcon,
 } from "lucide-react";
 import {
   useEffect,
@@ -131,6 +132,10 @@ import {
   useThreadActions,
 } from "../hooks/useThreadActions";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
+import {
+  canOpenProjectCoordinator,
+  useOpenProjectCoordinator,
+} from "../hooks/useOpenProjectCoordinator";
 import { useOrderWhileOpen } from "../hooks/useOrderWhileOpen";
 import { useProjectPin } from "../hooks/useProjectGroupUpdate";
 import { useSidebarProjectGroups } from "../hooks/useSidebarProjectGroups";
@@ -1294,8 +1299,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
       openProjectSettings(projectGroup);
     },
   );
-  const startThreadInProjectFolder = useStableCallback((group: SidebarProjectSnapshot) => {
-    if (isMobile) setOpenMobile(false);
+  const projectFolderTarget = (group: SidebarProjectSnapshot) => {
     const [entry] = buildSidebarProjectPickerEntries({
       groups: [group],
       preferredProjectRef: resolveThreadActionProjectRef({
@@ -1304,8 +1308,13 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
       }),
     });
     const target = entry?.targetProject ?? group;
-    void handleNewThread(scopeProjectRef(target.environmentId, target.id));
+    return scopeProjectRef(target.environmentId, target.id);
+  };
+  const startThreadInProjectFolder = useStableCallback((group: SidebarProjectSnapshot) => {
+    if (isMobile) setOpenMobile(false);
+    void handleNewThread(projectFolderTarget(group));
   });
+  const openProjectCoordinator = useOpenProjectCoordinator();
   const handleProjectFolderContextMenu = useStableCallback(
     (
       group: SidebarProjectSnapshot,
@@ -1314,11 +1323,15 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     ) => {
       const api = readLocalApi();
       if (!api) return;
+      const target = projectFolderTarget(group);
       void (async () => {
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
             [
               { id: "new-thread", label: gt("New thread") },
+              ...(canOpenProjectCoordinator(target)
+                ? [{ id: "coordinator", label: gt("Open coordinator") }]
+                : []),
               { id: "copy-path", label: gt("Copy path") },
               ...(canPinProject(group)
                 ? [
@@ -1337,6 +1350,10 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         switch (clicked.value) {
           case "new-thread":
             startThreadInProjectFolder(group);
+            return;
+          case "coordinator":
+            if (isMobile) setOpenMobile(false);
+            void openProjectCoordinator(target);
             return;
           case "copy-path":
             copyPathToClipboard(group.workspaceRoot, { path: group.workspaceRoot });
@@ -3326,21 +3343,48 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                   ) : null
                                 }
                                 settings={
-                                  <Button
-                                    size="icon-xs"
-                                    variant="ghost-muted"
-                                    tabIndex={-1}
-                                    aria-hidden="true"
-                                    title={gt("Project settings for {project}", {
-                                      project: project.displayName,
-                                    })}
-                                    onPointerDown={(event) => event.stopPropagation()}
-                                    onClick={(event) => {
-                                      void handleProjectSettings(event, project);
-                                    }}
-                                  >
-                                    <SettingsIcon className="size-3.5" />
-                                  </Button>
+                                  <>
+                                    {canOpenProjectCoordinator(projectFolderTarget(project)) ? (
+                                      <Button
+                                        size="icon-xs"
+                                        variant="ghost-muted"
+                                        tabIndex={-1}
+                                        aria-hidden="true"
+                                        title={gt("Open the coordinator of {project}", {
+                                          project: project.displayName,
+                                        })}
+                                        onPointerDown={(event) => event.stopPropagation()}
+                                        onClick={(event) => {
+                                          event.preventDefault();
+                                          event.stopPropagation();
+                                          suppressNextScopeChangeRef.current = true;
+                                          dispatchProjectScopeMenu({
+                                            type: "open-changed",
+                                            open: false,
+                                          });
+                                          if (isMobile) setOpenMobile(false);
+                                          void openProjectCoordinator(projectFolderTarget(project));
+                                        }}
+                                      >
+                                        <TowerControlIcon className="size-3.5" />
+                                      </Button>
+                                    ) : null}
+                                    <Button
+                                      size="icon-xs"
+                                      variant="ghost-muted"
+                                      tabIndex={-1}
+                                      aria-hidden="true"
+                                      title={gt("Project settings for {project}", {
+                                        project: project.displayName,
+                                      })}
+                                      onPointerDown={(event) => event.stopPropagation()}
+                                      onClick={(event) => {
+                                        void handleProjectSettings(event, project);
+                                      }}
+                                    >
+                                      <SettingsIcon className="size-3.5" />
+                                    </Button>
+                                  </>
                                 }
                               />
                             ) : (
