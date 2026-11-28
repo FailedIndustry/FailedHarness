@@ -10,6 +10,8 @@ export interface PacketVisual {
   readonly mediaId: string;
   readonly caption: string | null;
   readonly media: PacketMediaEntry | null;
+  /** A clip's length as the packet cut it; comments on it are in this clip time. */
+  readonly clipMs: number | null;
 }
 
 /** How many media a claim shows in its row before the rest go behind a "more" tile. */
@@ -40,6 +42,7 @@ export function packetVisuals(
           mediaId: item.media,
           caption: item.kind === "image" ? (item.caption ?? null) : null,
           media: byId.get(item.media) ?? null,
+          clipMs: item.kind === "clip" ? item.endMs - item.startMs : null,
         };
   const visuals = evidence.flatMap((item) => visual(item) ?? []);
   return [

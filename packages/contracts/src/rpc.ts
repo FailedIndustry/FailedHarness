@@ -248,6 +248,8 @@ import {
   ReviewCommentSendError,
   ReviewCommentSendInput,
   ReviewCommentSendResult,
+  ReviewCommentSendTargetInput,
+  ReviewCommentSendTargetResult,
   ReviewCommentSetResolvedInput,
   ReviewCommentStoreError,
   ReviewPacketRecordedDiffInput,
@@ -594,6 +596,7 @@ export const WS_METHODS = {
   reviewCommentsReply: "reviewComments.reply",
   reviewCommentsSetResolved: "reviewComments.setResolved",
   reviewCommentsSend: "reviewComments.send",
+  reviewCommentsSendTarget: "reviewComments.sendTarget",
 
   terminalOpen: "terminal.open",
   terminalAttach: "terminal.attach",
@@ -2063,6 +2066,12 @@ const WsReviewCommentsSetResolvedRpc = Rpc.make(WS_METHODS.reviewCommentsSetReso
   error: ReviewCommentRpcError,
 });
 
+const WsReviewCommentsSendTargetRpc = Rpc.make(WS_METHODS.reviewCommentsSendTarget, {
+  payload: ReviewCommentSendTargetInput,
+  success: ReviewCommentSendTargetResult,
+  error: Schema.Union([ReviewCommentStoreError, EnvironmentAuthorizationError]),
+});
+
 const WsReviewCommentsSendRpc = Rpc.make(WS_METHODS.reviewCommentsSend, {
   payload: ReviewCommentSendInput,
   success: ReviewCommentSendResult,
@@ -2821,6 +2830,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsReviewCommentsReplyRpc,
   WsReviewCommentsSetResolvedRpc,
   WsReviewCommentsSendRpc,
+  WsReviewCommentsSendTargetRpc,
   WsTerminalOpenRpc,
   WsTerminalAttachRpc,
   WsTerminalObserveRpc,

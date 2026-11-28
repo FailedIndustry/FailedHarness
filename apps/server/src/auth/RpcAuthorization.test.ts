@@ -101,6 +101,7 @@ describe("RPC authorization scopes", () => {
   it("lets thread readers read review comments and takes thread operation to write or send them", () => {
     for (const method of [
       WS_METHODS.reviewCommentsList,
+      WS_METHODS.reviewCommentsSendTarget,
       WS_METHODS.reviewPacketsSubscribeChanges,
     ]) {
       expect(requiredScopeForRpcMethod(method)).toBe(AuthOrchestrationReadScope);

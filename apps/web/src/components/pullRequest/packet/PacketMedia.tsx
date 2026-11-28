@@ -1,16 +1,15 @@
 import type { EnvironmentId } from "@t3tools/contracts";
-import { ImageOffIcon } from "lucide-react";
+import { ImageOffIcon, MessageSquareIcon } from "lucide-react";
 import { T, useGT, Var } from "gt-react";
 import { useState } from "react";
 
-import { useAssetUrlState, useAssetUrls } from "~/assets/assetUrls";
+import { useAssetUrlState } from "~/assets/assetUrls";
 
-import { ExpandedImageDialog } from "../../chat/ExpandedImageDialog";
-import type { ExpandedImageItem } from "../../chat/ExpandedImagePreview";
 import { MediaVideoPlayer } from "../../media/MediaVideoPlayer";
+import { usePacketComments } from "./PacketComments";
+import { reviewMediaResource } from "./PacketMediaViewer";
+import { threadsUnder } from "./packetComments.logic";
 import { PACKET_LEAD_MEDIA, type PacketVisual } from "./reviewPacket.logic";
-
-const reviewMediaResource = (id: string) => ({ _tag: "review-media" as const, id });
 
 const TILE_CLASS_NAME =
   "relative h-24 aspect-video shrink-0 overflow-hidden rounded-md border border-border/60 bg-muted/40";
@@ -22,98 +21,98 @@ function formatDuration(ms: number): string {
 
 /**
  * One row of evidence that scrolls sideways instead of shrinking, with the rest behind a final
- * "more" tile. Every item opens in the app's media viewer, where the whole set can be stepped.
+ * "more" tile. Every item opens in the packet's media viewer, where it can be commented on.
  */
 export function PacketMediaRow({
   environmentId,
   visuals,
   name,
+  claimId,
 }: {
   environmentId: EnvironmentId;
   visuals: ReadonlyArray<PacketVisual>;
   name: string;
+  claimId: string | null;
 }) {
   const gt = useGT();
-  const [expanded, setExpanded] = useState<number | null>(null);
-  // The viewer steps through every item, so their URLs are minted with the row's.
-  const urls = useAssetUrls(
-    environmentId,
-    visuals.map((visual) => reviewMediaResource(visual.mediaId)),
-  );
+  const model = usePacketComments();
   const lead = visuals.length > PACKET_LEAD_MEDIA ? visuals.slice(0, PACKET_LEAD_MEDIA) : visuals;
   const more = visuals.length - lead.length;
-  const items = visuals.map((visual, index): ExpandedImageItem => {
-    const src = urls[index] ?? null;
-    const label = visual.caption ?? name;
-    return visual.kind === "clip"
-      ? {
-          src,
-          name: label,
-          type: "video",
-          autoPlay: true,
-          actionsSource: {
-            kind: "video",
-            name: label,
-            src,
-            asset: { environmentId, resource: reviewMediaResource(visual.mediaId) },
-          },
-        }
-      : { src, name: label, ...(visual.media === null ? {} : { mimeType: visual.media.type }) };
-  });
+  const open = (index: number) =>
+    model.openViewer({ visuals, index, name, claimId, threadId: null });
+  // The same screenshot can back several claims; each counts the comments written under it.
+  const openCount = (mediaId: string) =>
+    threadsUnder(model.layout.byMedia.get(mediaId) ?? [], claimId).filter(
+      (thread) => thread.state !== "resolved",
+    ).length;
+  const hiddenCount = visuals
+    .slice(lead.length)
+    .reduce((total, visual) => total + openCount(visual.mediaId), 0);
 
   return (
-    <>
-      <ul className="-mx-1 flex min-w-0 gap-2 overflow-x-auto px-1 pb-1">
-        {lead.map((visual, index) => (
-          <li
-            key={visual.evidenceId}
-            className={TILE_CLASS_NAME}
-            data-packet-evidence={visual.evidenceId}
-            data-packet-media={visual.mediaId}
-          >
-            {visual.kind === "clip" ? (
-              <PacketClipTile
-                environmentId={environmentId}
-                visual={visual}
-                name={visual.caption ?? name}
-                onOpen={() => setExpanded(index)}
-              />
-            ) : (
-              <PacketImageTile
-                environmentId={environmentId}
-                visual={visual}
-                name={visual.caption ?? name}
-                onOpen={() => setExpanded(index)}
-              />
+    <ul className="-mx-1 flex min-w-0 gap-2 overflow-x-auto px-1 pb-1">
+      {lead.map((visual, index) => (
+        <li
+          key={visual.evidenceId}
+          className={TILE_CLASS_NAME}
+          data-packet-evidence={visual.evidenceId}
+          data-packet-media={visual.mediaId}
+        >
+          {visual.kind === "clip" ? (
+            <PacketClipTile
+              environmentId={environmentId}
+              visual={visual}
+              name={visual.caption ?? name}
+              onOpen={() => open(index)}
+            />
+          ) : (
+            <PacketImageTile
+              environmentId={environmentId}
+              visual={visual}
+              name={visual.caption ?? name}
+              onOpen={() => open(index)}
+            />
+          )}
+          <CommentCountBadge count={openCount(visual.mediaId)} />
+        </li>
+      ))}
+      {more > 0 ? (
+        <li className={TILE_CLASS_NAME}>
+          <button
+            type="button"
+            onClick={() => open(lead.length)}
+            aria-label={gt(
+              "{count, plural, one {Show {count} more item} other {Show {count} more items}}",
+              { count: more },
             )}
-          </li>
-        ))}
-        {more > 0 ? (
-          <li className={TILE_CLASS_NAME}>
-            <button
-              type="button"
-              onClick={() => setExpanded(lead.length)}
-              aria-label={gt(
-                "{count, plural, one {Show {count} more item} other {Show {count} more items}}",
-                { count: more },
-              )}
-              className="flex size-full flex-col items-center justify-center gap-0.5 text-muted-foreground outline-none hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-            >
-              <span className="text-lg font-medium tabular-nums">+{more}</span>
-              <span className="text-xs">
-                <T context="tile that opens the rest of a claim's screenshots and clips">more</T>
-              </span>
-            </button>
-          </li>
-        ) : null}
-      </ul>
-      {expanded === null ? null : (
-        <ExpandedImageDialog
-          preview={{ images: items, index: expanded }}
-          onClose={() => setExpanded(null)}
-        />
-      )}
-    </>
+            className="flex size-full flex-col items-center justify-center gap-0.5 text-muted-foreground outline-none hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          >
+            <span className="text-lg font-medium tabular-nums">+{more}</span>
+            <span className="text-xs">
+              <T context="tile that opens the rest of a claim's screenshots and clips">more</T>
+            </span>
+          </button>
+          <CommentCountBadge count={hiddenCount} />
+        </li>
+      ) : null}
+    </ul>
+  );
+}
+
+function CommentCountBadge({ count }: { count: number }) {
+  const gt = useGT();
+  if (count === 0) return null;
+  return (
+    <span
+      role="img"
+      aria-label={gt("{count, plural, one {{count} open comment} other {{count} open comments}}", {
+        count,
+      })}
+      className="pointer-events-none absolute top-1 left-1 flex items-center gap-0.5 rounded-sm bg-black/70 px-1 text-3xs font-medium text-white tabular-nums"
+    >
+      <MessageSquareIcon aria-hidden className="size-2.5" />
+      {count}
+    </span>
   );
 }
 
