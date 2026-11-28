@@ -396,7 +396,7 @@ const make = Effect.gen(function* () {
    */
   const layoutCommand: (
     project: { readonly projectId: ProjectId; readonly projectRoot: string },
-    kind: WorktreeLayoutCommandKind,
+    kind: Exclude<WorktreeLayoutCommandKind, "harness">,
     projectCommands: ProjectCommandsNow,
   ) => ClearedLayoutCommand["recheck"] = Effect.fnUntraced(
     function* (project, kind, projectCommands) {

@@ -24,6 +24,7 @@ import { SettingsRow, SettingsSection } from "./settingsLayout";
 const COMMAND_TITLES: Record<WorktreeLayoutCommandKind, string> = {
   create: msg("Create command"),
   remove: msg("Remove command"),
+  harness: msg("Harness"),
 };
 
 /** The `worktreeLayout` commands each checkout's `t3.json` declares, and whether they may run. */

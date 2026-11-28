@@ -141,6 +141,15 @@ export const T3ProjectFile = Schema.Struct({
       T3_PROJECT_FILE_PATH_MAX_LENGTH,
     ),
   ),
+  harness: Schema.optionalKey(
+    trimmedNonEmpty(
+      {
+        description:
+          "Repository-relative path to the project's harness executable (e.g. \"harness/gw\"). T3 Code runs it with a verb (doctor, setup, prepare, check, session, mark, packet) to set the project up, play a branch and collect its review packet. It runs on the environment's machine with your permissions, only once a person approved this path for the project.",
+      },
+      T3_PROJECT_FILE_PATH_MAX_LENGTH,
+    ),
+  ),
   scripts: Schema.optionalKey(
     Schema.Array(T3ProjectFileScript)
       .annotate({

@@ -1,5 +1,9 @@
 import { managedCapabilityDenial } from "@t3tools/client-runtime/contract-labels";
-import { runAtomCommand, squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+import {
+  executeAtomQuery,
+  runAtomCommand,
+  squashAtomCommandFailure,
+} from "@t3tools/client-runtime/state/runtime";
 import {
   AuthFilesystemReadScope,
   AuthTerminalOperateScope,
@@ -12,6 +16,7 @@ import { msg } from "gt-react";
 import { m } from "./i18n/messages";
 import { appAtomRegistry } from "./rpc/atomRegistry";
 import { filesystemEnvironment } from "./state/filesystem";
+import { harnessEnvironment } from "./state/harness";
 import { environmentPresentations } from "./state/presentation";
 import { readEnvironmentScope } from "./state/session";
 
@@ -19,6 +24,8 @@ export interface WorktreeLayoutApprovalRequest {
   /** Names this request, so an answer reaches only the request whose commands were on screen. */
   readonly id: number;
   readonly projectTitle: string;
+  /** The harness asks about one executable that runs sessions, not worktree setup. */
+  readonly variant: "worktree" | "harness";
   /** The commands that need approval, with the exact text that will be approved. */
   readonly commands: ReadonlyArray<WorktreeLayoutCommand>;
 }
@@ -117,7 +124,13 @@ export async function ensureWorktreeLayoutApproved(input: {
       ),
     };
   }
-  if (!(await requestWorktreeLayoutApproval({ projectTitle: input.projectTitle, commands }))) {
+  if (
+    !(await requestWorktreeLayoutApproval({
+      projectTitle: input.projectTitle,
+      variant: "worktree",
+      commands,
+    }))
+  ) {
     return { status: "cancelled" };
   }
   const approved = await runAtomCommand(
@@ -140,6 +153,68 @@ export async function ensureWorktreeLayoutApproved(input: {
         error instanceof Error
           ? error.message
           : m(msg("Could not approve the worktree layout command.")),
+    };
+  }
+  return { status: "proceed" };
+}
+
+/**
+ * Before a harness session starts: when the checkout's harness path is not approved as written,
+ * shows it and records the approval. Never part of starting a thread. The server refuses an
+ * unapproved harness either way, so a read that fails lets the start go on to that answer.
+ */
+export async function ensureHarnessApproved(input: {
+  readonly environmentId: EnvironmentId;
+  readonly projectId: ProjectId;
+  readonly projectTitle: string;
+  readonly worktreePath: string;
+}): Promise<WorktreeLayoutApprovalOutcome> {
+  const { environmentId, projectId, worktreePath } = input;
+  if (!readEnvironmentScope(environmentId, AuthFilesystemReadScope)) return { status: "proceed" };
+  const describe = harnessEnvironment.describe({
+    environmentId,
+    input: { projectId, worktreePath },
+  });
+  const read = await executeAtomQuery(appAtomRegistry, describe, {
+    label: "harness approval read",
+    reportFailure: false,
+    reportDefect: false,
+    refresh: true,
+  });
+  if (read._tag !== "Success") return { status: "proceed" };
+  const { declared, blocked } = read.value;
+  if (declared === null || blocked !== "not-approved") return { status: "proceed" };
+  if (!readEnvironmentScope(environmentId, AuthTerminalOperateScope)) {
+    return {
+      status: "blocked",
+      message: m(
+        msg(
+          "Nobody has approved this project's harness as it is declared now, and this connection cannot approve it: approve it from a client that can use the terminal.",
+        ),
+      ),
+    };
+  }
+  if (
+    !(await requestWorktreeLayoutApproval({
+      projectTitle: input.projectTitle,
+      variant: "harness",
+      commands: [{ kind: "harness", command: declared, approved: false }],
+    }))
+  ) {
+    return { status: "cancelled" };
+  }
+  const approved = await runAtomCommand(
+    appAtomRegistry,
+    filesystemEnvironment.approveLayoutCommands,
+    { environmentId, input: { projectId, approvals: [{ kind: "harness", command: declared }] } },
+    { reportFailure: false },
+  );
+  appAtomRegistry.refresh(describe);
+  if (approved._tag !== "Success") {
+    const error = squashAtomCommandFailure(approved);
+    return {
+      status: "blocked",
+      message: error instanceof Error ? error.message : m(msg("Could not approve the harness.")),
     };
   }
   return { status: "proceed" };

@@ -127,6 +127,7 @@ import * as ProviderMaintenanceRunner from "./provider/providerMaintenanceRunner
 import * as ProviderRegistry from "./provider/ProviderRegistry.ts";
 import * as ProviderSessionManager from "./orchestration-v2/ProviderSessionManager.ts";
 import * as PullRequestReviewGuideService from "./pullRequest/PullRequestReviewGuideService.ts";
+import * as HarnessService from "./harness/HarnessService.ts";
 import * as ReviewCommentService from "./review/ReviewCommentService.ts";
 import * as ReviewPacketService from "./review/ReviewPacketService.ts";
 import * as IssueService from "./issue/IssueService.ts";
@@ -895,6 +896,7 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(RepositoryIdentityResolver.RepositoryIdentityResolver)({}),
   Layer.mock(ReviewPacketService.ReviewPacketService)({ mediaPath: () => "" }),
   Layer.mock(ReviewCommentService.ReviewCommentService)({}),
+  Layer.mock(HarnessService.HarnessService)({ releaseCheckout: () => Effect.void }),
   Layer.mock(ResourceTelemetry.ResourceTelemetry)({}),
   Layer.mock(ReviewService.ReviewService)({}),
   Layer.mock(ScheduledTasks.ScheduledTaskService)({}),

@@ -172,6 +172,9 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.reviewPacketsSubscribeChanges]: AuthOrchestrationReadScope,
   [WS_METHODS.reviewCommentsList]: AuthOrchestrationReadScope,
   [WS_METHODS.reviewCommentsSendTarget]: AuthOrchestrationReadScope,
+  // Reads the named checkout's t3.json.
+  [WS_METHODS.harnessDescribe]: AuthFilesystemReadScope,
+  [WS_METHODS.harnessSubscribe]: AuthOrchestrationReadScope,
   [WS_METHODS.pullRequestsThreadComments]: AuthOrchestrationReadScope,
   [WS_METHODS.pullRequestsDiffFileContents]: AuthOrchestrationReadScope,
   [WS_METHODS.pullRequestsFilesViewed]: AuthOrchestrationReadScope,

@@ -238,6 +238,8 @@ import * as GitWorkflowService from "./git/GitWorkflowService.ts";
 import { assertCheckoutIdle } from "./git/sharedCheckoutGuard.ts";
 import { refreshPushedPullRequests } from "./git/refreshPushedPullRequests.ts";
 import { linkCreatedPullRequest } from "./git/linkCreatedPullRequest.ts";
+import * as HarnessService from "./harness/HarnessService.ts";
+import { collectPacket, collectPacketAfter } from "./harness/harnessPackets.ts";
 import * as ReviewCommentService from "./review/ReviewCommentService.ts";
 import * as ReviewPacketService from "./review/ReviewPacketService.ts";
 import * as ReviewService from "./review/ReviewService.ts";
@@ -1529,6 +1531,7 @@ export const layerWsRpc = (
       const reviewGuides = yield* PullRequestReviewGuideService.PullRequestReviewGuideService;
       const reviewPackets = yield* ReviewPacketService.ReviewPacketService;
       const reviewComments = yield* ReviewCommentService.ReviewCommentService;
+      const harness = yield* HarnessService.HarnessService;
       const pullRequestSync = yield* PullRequestSyncReactor.PullRequestSyncReactor;
       const deviceService = yield* DeviceService.DeviceService;
       const deviceHostContext =
@@ -3435,31 +3438,40 @@ export const layerWsRpc = (
             Effect.tap(() => refreshGitStatus(input.cwd)),
           ),
         [WS_METHODS.vcsRemoveWorktree]: (input) =>
-          // A thread's worktree may be a task folder: its repositories' worktrees go with it.
-          taskFolders
-            .removeIfTaskFolder({ path: input.path, force: input.force === true, projectCommands })
-            .pipe(
-              Effect.mapError(
-                (cause) =>
-                  new GitCommandError({
-                    operation: "TaskFolders.remove",
-                    command: "git worktree remove",
-                    cwd: input.cwd,
-                    detail: cause.detail,
-                  }),
-              ),
-              Effect.flatMap((removed) =>
-                removed ? Effect.void : gitWorkflow.removeWorktree(input),
-              ),
-              // No project-root refresh here: the client awaits vcs.refreshStatus right after, and a
-              // second refresh would queue behind this one and reread an unchanged repository.
-              // Subscribers of the removed checkout learn it is no longer a repository.
-              Effect.tap(() =>
-                vcsStatusBroadcaster
-                  .refreshLocalStatus(input.path)
-                  .pipe(Effect.ignoreCause({ log: true }), Effect.forkDetach, Effect.asVoid),
-              ),
+          // The harness session there is stopped while its executable still exists.
+          harness.releaseCheckout(input.path).pipe(
+            Effect.andThen(
+              // A thread's worktree may be a task folder: its repositories' worktrees go with it.
+              taskFolders
+                .removeIfTaskFolder({
+                  path: input.path,
+                  force: input.force === true,
+                  projectCommands,
+                })
+                .pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new GitCommandError({
+                        operation: "TaskFolders.remove",
+                        command: "git worktree remove",
+                        cwd: input.cwd,
+                        detail: cause.detail,
+                      }),
+                  ),
+                  Effect.flatMap((removed) =>
+                    removed ? Effect.void : gitWorkflow.removeWorktree(input),
+                  ),
+                  // No project-root refresh here: the client awaits vcs.refreshStatus right after, and a
+                  // second refresh would queue behind this one and reread an unchanged repository.
+                  // Subscribers of the removed checkout learn it is no longer a repository.
+                  Effect.tap(() =>
+                    vcsStatusBroadcaster
+                      .refreshLocalStatus(input.path)
+                      .pipe(Effect.ignoreCause({ log: true }), Effect.forkDetach, Effect.asVoid),
+                  ),
+                ),
             ),
+          ),
         [WS_METHODS.vcsCreateRef]: (input) =>
           (input.switchRef
             ? assertCheckoutIdle("GitWorkflowService.createRef", input.cwd)
@@ -3495,6 +3507,41 @@ export const layerWsRpc = (
         [WS_METHODS.reviewCommentsSetResolved]: (input) => reviewComments.setResolved(input),
         [WS_METHODS.reviewCommentsSend]: (input) => reviewComments.send(input),
         [WS_METHODS.reviewCommentsSendTarget]: (input) => reviewComments.sendTarget(input),
+        [WS_METHODS.harnessDescribe]: (input) => harness.describe(input),
+        [WS_METHODS.harnessSubscribe]: () => harness.changes,
+        [WS_METHODS.harnessStart]: (input) => harness.start({ ...input, projectCommands }),
+        // The packet is collected after the answer; the session's snapshot carries its outcome.
+        [WS_METHODS.harnessStop]: (input) =>
+          harness
+            .stop(input)
+            .pipe(
+              Effect.tap((session) =>
+                session.phase === "stopped"
+                  ? collectPacketAfter(session, projectCommands).pipe(
+                      Effect.provideService(HarnessService.HarnessService, harness),
+                      Effect.provideService(ReviewPacketService.ReviewPacketService, reviewPackets),
+                      Effect.forkDetach,
+                    )
+                  : Effect.void,
+              ),
+            ),
+        [WS_METHODS.harnessMark]: (input) =>
+          harness.mark(input).pipe(Effect.map((session) => ({ session }))),
+        [WS_METHODS.harnessViewer]: (input) =>
+          harness.viewer({
+            sessionId: input.sessionId,
+            // The viewer token ends with the session that asked for it.
+            invalidated: sessions
+              .awaitInvalidation(currentSessionId, currentSession.proofKeyThumbprint)
+              .pipe(Effect.ignore),
+          }),
+        [WS_METHODS.harnessDoctor]: (input) => harness.doctor({ ...input, projectCommands }),
+        [WS_METHODS.harnessSetup]: (input) => harness.setup({ ...input, projectCommands }),
+        [WS_METHODS.harnessPacket]: (input) =>
+          collectPacket({ ...input, projectCommands }).pipe(
+            Effect.provideService(HarnessService.HarnessService, harness),
+            Effect.provideService(ReviewPacketService.ReviewPacketService, reviewPackets),
+          ),
         [WS_METHODS.terminalOpen]: (input) =>
           prepareTerminalLaunch(input).pipe(
             Effect.flatMap((launch) =>
@@ -3865,6 +3912,7 @@ export const layer = Layer.unwrap(
     const reviewGuides = yield* PullRequestReviewGuideService.PullRequestReviewGuideService;
     const reviewPackets = yield* ReviewPacketService.ReviewPacketService;
     const reviewComments = yield* ReviewCommentService.ReviewCommentService;
+    const harness = yield* HarnessService.HarnessService;
     const peerLinks = yield* PeerLinks.PeerLinks;
     const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
     const peerThreadRelay = yield* PeerThreadRelay.PeerThreadRelay;
@@ -3975,7 +4023,10 @@ export const layer = Layer.unwrap(
               ),
               Layer.provide(Layer.succeed(ReviewPacketService.ReviewPacketService, reviewPackets)),
               Layer.provide(
-                Layer.succeed(ReviewCommentService.ReviewCommentService, reviewComments),
+                Layer.merge(
+                  Layer.succeed(ReviewCommentService.ReviewCommentService, reviewComments),
+                  Layer.succeed(HarnessService.HarnessService, harness),
+                ),
               ),
               Layer.provide(Layer.succeed(PeerLinks.PeerLinks, peerLinks)),
               Layer.provide(Layer.succeed(PeerLinkRequests.PeerLinkRequests, peerLinkRequests)),

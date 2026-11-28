@@ -51,15 +51,16 @@ Add `"$schema": "https://t3.codes/schema/t3.json"` for editor autocomplete and v
 
 ### Top-level fields
 
-| Field                        | Values / Description                                                                                                                                                                          |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `iconPath`                   | Workspace-relative path to a project icon (checked before auto-detected icons).                                                                                                               |
-| `defaultThreadEnvMode`       | `"local"` or `"worktree"` — default workspace mode for new threads.                                                                                                                           |
-| `worktreeSubmodules`         | `"recursive"` (default), `"top-level"`, or `"none"`.                                                                                                                                          |
-| `worktreeSparsePatternsPath` | Repo-relative path to a Git sparse-checkout pattern file (non-cone syntax; Git 2.35+).                                                                                                        |
-| `ignoreRepositories`         | Repo-relative paths to exclude in [multi-repo projects](./multi-repo-projects.md).                                                                                                            |
-| `worktreeLayout`             | Custom `{ "create": "...", "remove": "..." }` commands for multi-repo or custom worktrees (requires approval; see [Custom worktree layout](./multi-repo-projects.md#custom-worktree-layout)). |
-| `scripts`                    | Up to 50 project actions (see below).                                                                                                                                                         |
+| Field                        | Values / Description                                                                                                                                                                                            |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `iconPath`                   | Workspace-relative path to a project icon (checked before auto-detected icons).                                                                                                                                 |
+| `defaultThreadEnvMode`       | `"local"` or `"worktree"` — default workspace mode for new threads.                                                                                                                                             |
+| `worktreeSubmodules`         | `"recursive"` (default), `"top-level"`, or `"none"`.                                                                                                                                                            |
+| `worktreeSparsePatternsPath` | Repo-relative path to a Git sparse-checkout pattern file (non-cone syntax; Git 2.35+).                                                                                                                          |
+| `ignoreRepositories`         | Repo-relative paths to exclude in [multi-repo projects](./multi-repo-projects.md).                                                                                                                              |
+| `worktreeLayout`             | Custom `{ "create": "...", "remove": "..." }` commands for multi-repo or custom worktrees (requires approval; see [Custom worktree layout](./multi-repo-projects.md#custom-worktree-layout)).                   |
+| `harness`                    | Path to the project's harness executable, such as `"harness/gw"`, for setting the project up, playing a branch and collecting its review packet (requires approval; see [Play a branch](./project-harness.md)). |
+| `scripts`                    | Up to 50 project actions (see below).                                                                                                                                                                           |
 
 ## Project actions (`scripts`)
 

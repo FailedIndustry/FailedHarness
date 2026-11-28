@@ -102,7 +102,8 @@ export const WorkspaceAddTaskFolderRepositoryInput = Schema.Struct({
 export type WorkspaceAddTaskFolderRepositoryInput =
   typeof WorkspaceAddTaskFolderRepositoryInput.Type;
 
-export const WorktreeLayoutCommandKind = Schema.Literals(["create", "remove"]);
+/** `harness` is the project's harness path: approved the same way, but not a layout command. */
+export const WorktreeLayoutCommandKind = Schema.Literals(["create", "remove", "harness"]);
 export type WorktreeLayoutCommandKind = typeof WorktreeLayoutCommandKind.Type;
 
 /** One of a project's `worktreeLayout` commands, as its `t3.json` holds it now. */

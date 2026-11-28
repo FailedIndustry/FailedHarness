@@ -72,6 +72,19 @@ model.
   read. A command that waited for another one's turn is checked again, who asked, file and
   approval, before it starts; one refused then ran nothing, so the project's `remove` does not run
   for it either.
+- **A project's harness runs only as a person approved it, and its stream is reached only with
+  a viewer token.** The `harness` path in a checkout's `t3.json` is approved like the layout
+  commands (kind `harness` in the same table, same write-side rule, same managed-policy switch)
+  and checked by [`HarnessService`](../../apps/server/src/harness/HarnessService.ts) at every
+  verb, who asked included: MCP callers below Full access get nothing. The approval is of the
+  path text, so a branch that edits the file itself runs as edited when a person plays it. A
+  streamed session's Selkies login stays on the server: the stream proxy under
+  `/api/harness/stream/<session>/<token>/` forwards only to that session's own loopback port and
+  adds the login itself. The token in the path is the credential, because an iframe cannot send
+  bearer or DPoP headers; only `harness.viewer` mints one, behind `orchestration:operate`, and it
+  ends with the client session that asked or the harness session. The page runs on the
+  environment's origin as approved project code, which is no new authority over a session that
+  can already run the harness.
 - **A repository's push hooks run for an agent below Full access only as a person approved
   them.** `pull_request_create` pushes as the server's OS user, and Git would run the checkout's
   `pre-push` and `reference-transaction` hooks, which the agent may have written. By the rule

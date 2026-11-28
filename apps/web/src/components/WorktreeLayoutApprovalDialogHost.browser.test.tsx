@@ -17,6 +17,7 @@ const projectId = ProjectId.make("project:layout");
 const state = vi.hoisted(() => ({
   commands: [] as WorktreeLayoutCommand[],
   approved: [] as unknown[],
+  harness: { declared: "tools/harness", approved: false, blocked: "not-approved", policyBy: null },
 }));
 
 vi.mock(import("@t3tools/client-runtime/state/runtime"), async (original) => ({
@@ -25,7 +26,12 @@ vi.mock(import("@t3tools/client-runtime/state/runtime"), async (original) => ({
     if (command === "approve") state.approved.push(value.input);
     return { _tag: "Success", value: { commands: state.commands } };
   }) as never,
+  executeAtomQuery: (async () => ({ _tag: "Success", value: state.harness })) as never,
 }));
+vi.mock(
+  import("../state/harness"),
+  () => ({ harnessEnvironment: { describe: () => "describe" } }) as never,
+);
 vi.mock(
   import("../state/filesystem"),
   () =>
@@ -47,11 +53,11 @@ vi.mock(
 );
 vi.mock(
   import("../rpc/atomRegistry"),
-  () => ({ appAtomRegistry: { get: () => new Map() } }) as never,
+  () => ({ appAtomRegistry: { get: () => new Map(), refresh: () => {} } }) as never,
 );
 
 import { act, render } from "../../test/render";
-import { ensureWorktreeLayoutApproved } from "../worktreeLayoutApproval";
+import { ensureHarnessApproved, ensureWorktreeLayoutApproved } from "../worktreeLayoutApproval";
 import { WorktreeLayoutApprovalDialogHost } from "./WorktreeLayoutApprovalDialogHost";
 
 const ask = (command: string) => {
@@ -91,6 +97,30 @@ describe("worktree layout approval dialog", () => {
     await expect(second).resolves.toEqual({ status: "proceed" });
     expect(state.approved).toEqual([
       { projectId, approvals: [{ kind: "create", command: "./scripts/other.sh" }] },
+    ]);
+  });
+
+  it("asks about the harness path in its own words and approves the path it showed", async () => {
+    state.approved = [];
+    await using _screen = await render(<WorktreeLayoutApprovalDialogHost />, { router: false });
+    let pending: ReturnType<typeof ensureHarnessApproved> | undefined;
+    await act(() => {
+      pending = ensureHarnessApproved({
+        environmentId,
+        projectId,
+        projectTitle: "Shop",
+        worktreePath: "/worktrees/shop-door",
+      });
+    });
+    await expect
+      .element(page.getByRole("heading", { name: "Let this project run its harness?" }))
+      .toBeVisible();
+    await expect.element(page.getByText("tools/harness")).toBeVisible();
+
+    await userEvent.click(page.getByRole("button", { name: "Approve and continue" }));
+    await expect(pending).resolves.toEqual({ status: "proceed" });
+    expect(state.approved).toEqual([
+      { projectId, approvals: [{ kind: "harness", command: "tools/harness" }] },
     ]);
   });
 });
