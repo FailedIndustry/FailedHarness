@@ -167,6 +167,10 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.pullRequestsReviewGuide]: AuthOrchestrationReadScope,
   [WS_METHODS.reviewPacketsList]: AuthOrchestrationReadScope,
   [WS_METHODS.reviewPacketsGet]: AuthOrchestrationReadScope,
+  // Reads the project's checkout, as the review diff preview does.
+  [WS_METHODS.reviewPacketsRecordedDiff]: AuthFilesystemReadScope,
+  [WS_METHODS.reviewPacketsSubscribeChanges]: AuthOrchestrationReadScope,
+  [WS_METHODS.reviewCommentsList]: AuthOrchestrationReadScope,
   [WS_METHODS.pullRequestsThreadComments]: AuthOrchestrationReadScope,
   [WS_METHODS.pullRequestsDiffFileContents]: AuthOrchestrationReadScope,
   [WS_METHODS.pullRequestsFilesViewed]: AuthOrchestrationReadScope,

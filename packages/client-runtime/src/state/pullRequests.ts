@@ -60,6 +60,7 @@ import { isStalePullRequestReply } from "../pullRequestReply.ts";
 import { parsePullRequestQuery } from "../pullRequestQuery.ts";
 import { reuseUnchanged } from "./serverConfigProjection.ts";
 import { createEnvironmentSessionAtoms } from "./session.ts";
+import { reviewChangesAtomFamily } from "./reviewComments.ts";
 
 export {
   type PullRequestDiffLoadError,
@@ -1069,12 +1070,20 @@ export function createPullRequestEnvironmentAtoms<R, E>(
     }),
   );
   // Not routed: like review guides, each server keeps the packets it was given.
+  const reviewChanges = reviewChangesAtomFamily(runtime);
+  const reviewPacketSignals = Atom.family((environmentId: EnvironmentId) =>
+    Atom.make((get) => [
+      get(refreshes({ environmentId, input: {} })),
+      get(reviewChanges({ environmentId, input: {} })),
+    ]),
+  );
   const reviewPacket = createEnvironmentRpcQueryAtomFamily(runtime, {
     label: "environment-data:pull-requests:review-packet",
     persistence: persistQuery(ReviewPacketGetResult),
     tag: WS_METHODS.reviewPacketsGet,
     staleTimeMs: 60_000,
-    refreshTrigger: ({ environmentId }) => refreshes({ environmentId, input: {} }),
+    // A new packet arrives by `t3 packet submit`, so the review signal refreshes it too.
+    refreshTrigger: ({ environmentId }) => reviewPacketSignals(environmentId),
   });
   const reviewerCandidates = writableQueryFamily(
     createEnvironmentRpcQueryAtomFamily(runtime, {

@@ -248,7 +248,9 @@ import { closeNonPrivateNetworkConnections, loopbackUrlHostForAddress } from "./
 import * as OrchestrationHttp from "./orchestration-v2/http.ts";
 import * as ProjectHttp from "./project/http.ts";
 import * as ReviewPacketHttp from "./review/http.ts";
+import * as ReviewCommentService from "./review/ReviewCommentService.ts";
 import * as ReviewPacketService from "./review/ReviewPacketService.ts";
+import * as ReviewComments from "./persistence/ReviewComments.ts";
 import * as ReviewPackets from "./persistence/ReviewPackets.ts";
 import * as NetService from "@t3tools/shared/Net";
 import * as RelayClient from "@t3tools/shared/relayClient";
@@ -944,6 +946,20 @@ const layerMakeRoutes = Layer.mergeAll(
 ).pipe(
   Layer.provide(
     PullRequestReviewGuideService.layer.pipe(Layer.provide(PullRequestReviewGuides.layer)),
+  ),
+  // Before the packet service it reads, so both share one change signal.
+  Layer.provide(
+    ReviewCommentService.layer.pipe(
+      Layer.provide(
+        Layer.mergeAll(
+          ReviewComments.layer,
+          ReviewPackets.layer,
+          ProjectionStoreV2.layer,
+          ProjectStore.layer,
+          GitVcsDriver.layer,
+        ),
+      ),
+    ),
   ),
   Layer.provide(ReviewPacketService.layer.pipe(Layer.provide(ReviewPackets.layer))),
   // delegate_task to a linked environment, from /mcp and the follower above.

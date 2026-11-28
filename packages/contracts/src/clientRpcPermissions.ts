@@ -53,6 +53,13 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   // A tracker credential and a project's binding are settings, saved under the same grant.
   [WS_METHODS.issueTrackersConnect]: AuthSettingsWriteScope,
   [WS_METHODS.issueTrackersBindProject]: AuthSettingsWriteScope,
+  // Review comments are what the next send hands an agent; sending queues a turn in a thread.
+  [WS_METHODS.reviewCommentsCreate]: AuthOrchestrationOperateScope,
+  [WS_METHODS.reviewCommentsEdit]: AuthOrchestrationOperateScope,
+  [WS_METHODS.reviewCommentsDelete]: AuthOrchestrationOperateScope,
+  [WS_METHODS.reviewCommentsReply]: AuthOrchestrationOperateScope,
+  [WS_METHODS.reviewCommentsSetResolved]: AuthOrchestrationOperateScope,
+  [WS_METHODS.reviewCommentsSend]: AuthOrchestrationOperateScope,
   // Writing a guide runs a model on this environment's providers, which reading one does not.
   [WS_METHODS.pullRequestsGenerateReviewGuide]: AuthOrchestrationOperateScope,
   [WS_METHODS.projectsCreateFromThread]: AuthOrchestrationOperateScope,

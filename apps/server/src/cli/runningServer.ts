@@ -4,6 +4,7 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
+import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as HttpClient from "effect/http/HttpClient";
@@ -43,6 +44,7 @@ export type ServerClient = HttpApiClient.ForApi<typeof EnvironmentHttpApi>;
 // The scope revokes the session; the TTL bounds it if that never runs.
 const SESSION_TTL = Duration.minutes(2);
 const REQUEST_TIMEOUT = Duration.seconds(30);
+const STARTING_SERVER_WAIT = { schedule: Schedule.spaced("250 millis"), times: 80 } as const;
 
 /** A client of the server at `origin`, signed in as a short-lived session for the scope. */
 export const serverClient = Effect.fn("RunningServer.serverClient")(function* (
@@ -98,32 +100,57 @@ export const changeState = Effect.fn("RunningServer.changeState")(function* <A, 
   readonly locally: Effect.Effect<A, E2, R2>;
 }) {
   const { serverRuntimeStatePath } = yield* ServerConfig.ServerConfig;
-  const changeLocally = <E3>(
-    ifServerRuns: (error: ServerOwnership.ServerAlreadyRunningError) => Effect.Effect<never, E3>,
-  ) =>
-    ServerOwnership.acquireServerOwnership(serverRuntimeStatePath).pipe(
+  const changeLocally = Effect.fn("RunningServer.changeLocally")(function* <B, E3, R3>(
+    ifServerRuns: (error: ServerOwnership.ServerAlreadyRunningError) => Effect.Effect<B, E3, R3>,
+  ) {
+    const owned = yield* ServerOwnership.acquireServerOwnership(serverRuntimeStatePath).pipe(
       Effect.provide(ProcessRunner.layer),
-      Effect.catchTags({ ServerAlreadyRunningError: ifServerRuns }),
-      Effect.andThen(locally),
-      // The lock proves the recorded server is gone; drop its record once the change lands.
-      Effect.tap(() => clearPersistedServerRuntimeState(serverRuntimeStatePath)),
+      Effect.as(null),
+      Effect.catchTags({ ServerAlreadyRunningError: (error) => Effect.succeed(error) }),
+    );
+    if (owned !== null) return yield* ifServerRuns(owned);
+    const result = yield* locally;
+    // The lock proves the recorded server is gone; drop its record once the change lands.
+    yield* clearPersistedServerRuntimeState(serverRuntimeStatePath);
+    return result;
+  }, Effect.scoped);
+
+  const request = (origin: string) =>
+    serverClient(origin, scopes).pipe(
+      Effect.flatMap(viaServer),
+      Effect.timeout(REQUEST_TIMEOUT),
       Effect.scoped,
+      // Once connected, the server may have made the change; writing it again could repeat it.
+      Effect.catchIf(isUnanswered, (cause) =>
+        Effect.fail(new RunningServerNoReplyError({ origin, cause })),
+      ),
     );
 
   const running = yield* readLiveServerRuntimeState(serverRuntimeStatePath);
-  if (Option.isNone(running)) return yield* changeLocally(Effect.fail);
-  const { origin } = running.value;
-  return yield* serverClient(origin, scopes).pipe(
-    Effect.flatMap(viaServer),
-    Effect.timeout(REQUEST_TIMEOUT),
-    Effect.scoped,
-    // A refused connection reached no server, so the lock decides whether one still runs.
-    Effect.catchIf(neverConnected, (cause) =>
-      changeLocally(() => Effect.fail(new RunningServerUnreachableError({ origin, cause }))),
-    ),
-    // Once connected, the server may have made the change; writing it again could repeat it.
-    Effect.catchIf(isUnanswered, (cause) =>
-      Effect.fail(new RunningServerNoReplyError({ origin, cause })),
-    ),
+  if (Option.isSome(running)) {
+    const { origin } = running.value;
+    return yield* request(origin).pipe(
+      // A refused connection reached no server, so the lock decides whether one still runs.
+      Effect.catchIf(neverConnected, (cause) =>
+        changeLocally(() => Effect.fail(new RunningServerUnreachableError({ origin, cause }))),
+      ),
+    );
+  }
+  // A server holds the lock from before it opens the database until it has cleared its record,
+  // and records itself only once it listens: a restarting server owns the home with no record
+  // yet. Wait for one to appear rather than refusing a change the server would take.
+  return yield* changeLocally((ownedByServer) =>
+    Effect.gen(function* () {
+      const started = yield* readLiveServerRuntimeState(serverRuntimeStatePath).pipe(
+        Effect.repeat({ ...STARTING_SERVER_WAIT, while: Option.isNone }),
+      );
+      if (Option.isNone(started)) return yield* ownedByServer;
+      const { origin } = started.value;
+      return yield* request(origin).pipe(
+        Effect.catchIf(neverConnected, (cause) =>
+          Effect.fail(new RunningServerUnreachableError({ origin, cause })),
+        ),
+      );
+    }),
   );
 });

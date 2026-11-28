@@ -237,6 +237,23 @@ import {
   ReviewPacketReadError,
 } from "./reviewPacket.ts";
 import {
+  ReviewCommentCreateInput,
+  ReviewCommentDeleteInput,
+  ReviewCommentEditInput,
+  ReviewCommentListInput,
+  ReviewCommentListResult,
+  ReviewCommentMutationResult,
+  ReviewCommentRefusedError,
+  ReviewCommentReplyInput,
+  ReviewCommentSendError,
+  ReviewCommentSendInput,
+  ReviewCommentSendResult,
+  ReviewCommentSetResolvedInput,
+  ReviewCommentStoreError,
+  ReviewPacketRecordedDiffInput,
+  ReviewPacketRecordedDiffResult,
+} from "./reviewComment.ts";
+import {
   PullRequestActionInput,
   PullRequestActivity,
   PullRequestChangeBreakdown,
@@ -568,6 +585,15 @@ export const WS_METHODS = {
   reviewGetDiffFileContents: "review.getDiffFileContents",
   reviewPacketsList: "reviewPackets.list",
   reviewPacketsGet: "reviewPackets.get",
+  reviewPacketsRecordedDiff: "reviewPackets.recordedDiff",
+  reviewPacketsSubscribeChanges: "reviewPackets.subscribeChanges",
+  reviewCommentsList: "reviewComments.list",
+  reviewCommentsCreate: "reviewComments.create",
+  reviewCommentsEdit: "reviewComments.edit",
+  reviewCommentsDelete: "reviewComments.delete",
+  reviewCommentsReply: "reviewComments.reply",
+  reviewCommentsSetResolved: "reviewComments.setResolved",
+  reviewCommentsSend: "reviewComments.send",
 
   terminalOpen: "terminal.open",
   terminalAttach: "terminal.attach",
@@ -1981,6 +2007,68 @@ const WsReviewPacketsGetRpc = Rpc.make(WS_METHODS.reviewPacketsGet, {
   error: Schema.Union([ReviewPacketReadError, EnvironmentAuthorizationError]),
 });
 
+const WsReviewPacketsRecordedDiffRpc = Rpc.make(WS_METHODS.reviewPacketsRecordedDiff, {
+  payload: ReviewPacketRecordedDiffInput,
+  success: ReviewPacketRecordedDiffResult,
+  error: Schema.Union([ReviewCommentStoreError, EnvironmentAuthorizationError]),
+});
+
+// Counts up whenever a packet or a review comment of this environment changes.
+const WsReviewPacketsSubscribeChangesRpc = Rpc.make(WS_METHODS.reviewPacketsSubscribeChanges, {
+  payload: Schema.Struct({}),
+  success: NonNegativeInt,
+  error: EnvironmentAuthorizationError,
+  stream: true,
+});
+
+const ReviewCommentRpcError = Schema.Union([
+  ReviewCommentRefusedError,
+  ReviewCommentStoreError,
+  EnvironmentAuthorizationError,
+]);
+
+const WsReviewCommentsListRpc = Rpc.make(WS_METHODS.reviewCommentsList, {
+  payload: ReviewCommentListInput,
+  success: ReviewCommentListResult,
+  error: ReviewCommentRpcError,
+});
+
+const WsReviewCommentsCreateRpc = Rpc.make(WS_METHODS.reviewCommentsCreate, {
+  payload: ReviewCommentCreateInput,
+  success: ReviewCommentMutationResult,
+  error: ReviewCommentRpcError,
+});
+
+const WsReviewCommentsEditRpc = Rpc.make(WS_METHODS.reviewCommentsEdit, {
+  payload: ReviewCommentEditInput,
+  success: ReviewCommentMutationResult,
+  error: ReviewCommentRpcError,
+});
+
+const WsReviewCommentsDeleteRpc = Rpc.make(WS_METHODS.reviewCommentsDelete, {
+  payload: ReviewCommentDeleteInput,
+  success: ReviewCommentMutationResult,
+  error: ReviewCommentRpcError,
+});
+
+const WsReviewCommentsReplyRpc = Rpc.make(WS_METHODS.reviewCommentsReply, {
+  payload: ReviewCommentReplyInput,
+  success: ReviewCommentMutationResult,
+  error: ReviewCommentRpcError,
+});
+
+const WsReviewCommentsSetResolvedRpc = Rpc.make(WS_METHODS.reviewCommentsSetResolved, {
+  payload: ReviewCommentSetResolvedInput,
+  success: ReviewCommentMutationResult,
+  error: ReviewCommentRpcError,
+});
+
+const WsReviewCommentsSendRpc = Rpc.make(WS_METHODS.reviewCommentsSend, {
+  payload: ReviewCommentSendInput,
+  success: ReviewCommentSendResult,
+  error: Schema.Union([...ReviewCommentRpcError.members, ReviewCommentSendError]),
+});
+
 const WsTerminalOpenRpc = Rpc.make(WS_METHODS.terminalOpen, {
   payload: TerminalOpenInput,
   success: TerminalSessionSnapshot,
@@ -2724,6 +2812,15 @@ export const WsRpcGroup = RpcGroup.make(
   WsReviewGetDiffFileContentsRpc,
   WsReviewPacketsListRpc,
   WsReviewPacketsGetRpc,
+  WsReviewPacketsRecordedDiffRpc,
+  WsReviewPacketsSubscribeChangesRpc,
+  WsReviewCommentsListRpc,
+  WsReviewCommentsCreateRpc,
+  WsReviewCommentsEditRpc,
+  WsReviewCommentsDeleteRpc,
+  WsReviewCommentsReplyRpc,
+  WsReviewCommentsSetResolvedRpc,
+  WsReviewCommentsSendRpc,
   WsTerminalOpenRpc,
   WsTerminalAttachRpc,
   WsTerminalObserveRpc,
