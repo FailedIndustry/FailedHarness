@@ -61,6 +61,7 @@ import {
   type PullRequestLabelFacet,
 } from "./pullRequestList.logic";
 import { resolveFilterOptions } from "./pullRequestListOptions";
+import type { PullRequestPacketFilter } from "./pullRequestListPreferences";
 import { PullRequestActorAvatar } from "./pullRequestPresentation";
 import { PullRequestGlyph } from "./pullRequestIcons";
 import { SharedTooltipTrigger } from "../ui/shared-tooltip";
@@ -172,6 +173,19 @@ const DRAFT_OPTIONS = [
   },
   { value: "only", label: msg("Drafts only"), Icon: PullRequestGlyph.draft },
   { value: "hide", label: msg("Hide drafts"), Icon: EyeOffIcon },
+] as const satisfies ReadonlyArray<PullRequestFilterOption<string>>;
+
+const PACKET_OPTIONS = [
+  {
+    value: UNFILTERED_VALUE,
+    label: msg("All", { $context: "pull request filter" }),
+    Icon: LayersIcon,
+  },
+  {
+    value: "needs-me",
+    label: msg("Needs me", { $context: "review packet filter" }),
+    Icon: UserRoundIcon,
+  },
 ] as const satisfies ReadonlyArray<PullRequestFilterOption<string>>;
 
 const REVIEW_OPTIONS = [
@@ -537,6 +551,8 @@ export function PullRequestFiltersMenu({
   authorOptions = [],
   labelOptions = [],
   optionScope,
+  packet,
+  onPacket,
   host,
   hostOptions,
   onHost,
@@ -561,6 +577,8 @@ export function PullRequestFiltersMenu({
   authorOptions?: ReadonlyArray<PullRequestAuthorFacet>;
   labelOptions?: ReadonlyArray<PullRequestLabelFacet>;
   optionScope: ReadonlyArray<PullRequestFilterOptionScope>;
+  packet: PullRequestPacketFilter | undefined;
+  onPacket: (packet: PullRequestPacketFilter | undefined) => void;
   host: string | undefined;
   hostOptions: ReadonlyArray<PullRequestFilterOption<string>>;
   onHost: (host: string | undefined) => void;
@@ -586,6 +604,7 @@ export function PullRequestFiltersMenu({
     filters.review,
     filters.checks,
     filters.author,
+    packet,
     ...selectedLabels,
   ].filter(Boolean).length;
   const updateFilters = (next: Partial<PullRequestListFilters>) =>
@@ -680,6 +699,12 @@ export function PullRequestFiltersMenu({
           value={filters.checks ?? UNFILTERED_VALUE}
           options={resolveFilterOptions(CHECKS_OPTIONS, resolve)}
           onChange={(checks) => updateFilter("checks", checks)}
+        />
+        <PullRequestFilterRadioSubmenu
+          label={gt("Review packet", { $context: "pull request filter" })}
+          value={packet ?? UNFILTERED_VALUE}
+          options={resolveFilterOptions(PACKET_OPTIONS, resolve)}
+          onChange={(next) => onPacket(next === "needs-me" ? next : undefined)}
         />
         {hostOptions.length > 2 ? (
           <>

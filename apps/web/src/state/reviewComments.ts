@@ -1,12 +1,15 @@
 import { useAtomValue } from "@effect/atom-react";
 import { createReviewCommentEnvironmentAtoms } from "@t3tools/client-runtime/state/review-comments";
+import { indexReviewPackets, type ReviewPacketIndex } from "@t3tools/shared/reviewQueue";
 import {
   REVIEW_COMMENT_LIMITS,
+  REVIEW_PACKET_LIST_MAX_LIMIT,
   type EnvironmentId,
   type ReviewCommentCounts,
   type ReviewCommentListResult,
   type ReviewCommentThread,
   type ReviewPacketChangeRef,
+  type ReviewPacketChangeSummary,
   type ReviewRegion,
 } from "@t3tools/contracts";
 import type * as Cause from "effect/Cause";
@@ -14,6 +17,7 @@ import { AsyncResult, Atom } from "effect/reactivity";
 import { create } from "zustand";
 
 import { connectionAtomRuntime } from "../connection/runtime";
+import { createMergedEnvironmentQuery } from "./pullRequests";
 
 export const reviewCommentEnvironment = createReviewCommentEnvironmentAtoms(connectionAtomRuntime);
 
@@ -104,6 +108,32 @@ export function useChangeComments(
             change: { host: change.host, repository: change.repository, branch: change.branch },
           }),
         ),
+  );
+}
+
+const useChangeListsQuery = createMergedEnvironmentQuery(
+  "web-review:change-lists",
+  reviewCommentEnvironment.changeList,
+);
+
+/**
+ * Every stored packet's summary per environment, from one `changeList` read each, which refreshes
+ * itself on the review signal. The newest recorded changes come first, so a cap drops old ones.
+ */
+export function useReviewPacketIndexes(
+  environmentIds: ReadonlyArray<EnvironmentId>,
+): ReadonlyMap<EnvironmentId, ReviewPacketIndex<ReviewPacketChangeSummary>> {
+  const query = useChangeListsQuery(
+    environmentIds.map((environmentId) => ({
+      environmentId,
+      input: { limit: REVIEW_PACKET_LIST_MAX_LIMIT },
+    })),
+  );
+  return new Map(
+    query.values.map(([environmentId, result]) => [
+      environmentId,
+      indexReviewPackets(result.changes),
+    ]),
   );
 }
 

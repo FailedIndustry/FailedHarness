@@ -90,7 +90,13 @@ import {
   usePullRequestScope,
   type PullRequestsSearch,
 } from "./usePullRequestListView";
-import { pullRequestGroups, pullRequestListEntryId } from "./pullRequestListGroups.logic";
+import {
+  pullRequestGroups,
+  pullRequestListEntryId,
+  pullRequestQueueNeighbours,
+} from "./pullRequestListGroups.logic";
+import { PullRequestQueueNavigation } from "./PullRequestQueueNavigation";
+import { useReviewPacketIndexes } from "~/state/reviewComments";
 import { PullRequestListEmptyState } from "./PullRequestListEmptyState";
 import { PullRequestListGhost } from "./PullRequestGhosts";
 import { type PullRequestRowTarget } from "./PullRequestRow";
@@ -98,7 +104,11 @@ import { PullRequestsUnavailableState } from "./PullRequestsUnavailableState";
 import { RightPanelTabs, type RightPanelTabsHandle } from "../RightPanelTabs";
 import { isCommandPaletteOpen } from "~/commandPaletteBus";
 import { isElectron } from "~/env";
-import { resolveShortcutCommand, shortcutLabelForCommand } from "~/keybindings";
+import {
+  resolveShortcutCommand,
+  shortcutLabelForCommand,
+  threadTraversalDirectionFromCommand,
+} from "~/keybindings";
 import { registerCommands } from "~/shortcuts/dispatcher";
 import { isTerminalFocused } from "~/lib/terminalFocus";
 import { PanelLayoutControls, RightPanelMaximizeControl } from "../chat/PanelLayoutControls";
@@ -294,6 +304,7 @@ export function PullRequestsPage() {
           ...(next.checks ? { checks: next.checks } : {}),
           ...(next.author ? { author: next.author } : {}),
           ...(next.labels && next.labels.length > 0 ? { labels: next.labels } : {}),
+          ...(next.packet ? { packet: next.packet } : {}),
         };
       },
       replace: true,
@@ -332,9 +343,11 @@ export function PullRequestsPage() {
     localFilters,
     hasLocalFilters,
   } = usePullRequestQueryFilters(search, typedQuery);
-  const turnRefreshes = usePullRequestTurnRefreshes([
+  const listedEnvironmentIds = [
     ...new Set(environmentQueries.map(({ environmentId }) => environmentId)),
-  ]);
+  ];
+  const turnRefreshes = usePullRequestTurnRefreshes(listedEnvironmentIds);
+  const reviewPackets = useReviewPacketIndexes(listedEnvironmentIds);
   const turnRefreshToken = turnRefreshes
     .map(([environmentId, revision]) => `${environmentId}:${revision}`)
     .join("|");
@@ -997,6 +1010,7 @@ export function PullRequestsPage() {
   const {
     hosts,
     displayGroups,
+    standingOf,
     shownCount,
     hostActionsOf,
     closeSweepRows,
@@ -1014,6 +1028,8 @@ export function PullRequestsPage() {
     sort,
     text: typedParsed.text,
     involvement: search.involvement,
+    reviewPackets,
+    packetFilter: search.packet,
   });
   const showProvider = hosts.length > 1;
   const [closeSweepKeys, setCloseSweepKeys] = useState<ReadonlySet<string>>(() => new Set());
@@ -1190,7 +1206,7 @@ export function PullRequestsPage() {
   const prefetchEntry = usePullRequestIntentPrefetch((entry) =>
     listedPullRequestsBySurface.has(pullRequestListEntryId(entry)),
   );
-  const selectEntry = (entry: PullRequestRowTarget) => {
+  const openEntry = (entry: PullRequestRowTarget) => {
     if (rightPanelRef === null) return;
     useRightPanelStore.getState().openPullRequest(rightPanelRef, entry);
     updateSearch({
@@ -1200,6 +1216,39 @@ export function PullRequestsPage() {
       selectedEnvironmentId: entry.environmentId,
       selectedHost: entry.host,
     });
+  };
+  const listedKeys = displayGroups.flatMap((group) => group.entries.map(pullRequestListEntryId));
+  const [queueWalk, setQueueWalk] = useState<ReadonlyArray<(typeof listedKeys)[number]> | null>(
+    null,
+  );
+  const selectEntry = (entry: PullRequestRowTarget) => {
+    setQueueWalk(listedKeys);
+    openEntry(entry);
+  };
+  const queue = pullRequestQueueNeighbours({
+    walk: queueWalk,
+    listed: listedKeys,
+    current:
+      activePullRequestSurface === null ? null : pullRequestListEntryId(activePullRequestSurface),
+  });
+  /** A step replaces the pull request it leaves, so walking the queue does not pile up tabs. */
+  const walkQueue = (key: (typeof listedKeys)[number] | null) => {
+    const entry = key === null ? undefined : listedPullRequestsBySurface.get(key);
+    if (entry === undefined || rightPanelRef === null) return;
+    const leaving = activePullRequestSurface;
+    setQueueWalk(queue.keys);
+    openEntry(entry);
+    const arrived = selectActiveRightPanelSurface(
+      useRightPanelStore.getState().byThreadKey,
+      rightPanelRef,
+    );
+    if (leaving !== null && arrived?.id !== leaving.id) {
+      useRightPanelStore.getState().closeSurface(rightPanelRef, leaving.id);
+    }
+  };
+  const queueNeighbour = (key: (typeof listedKeys)[number] | null) => {
+    const entry = key === null ? undefined : listedPullRequestsBySurface.get(key);
+    return entry === undefined ? null : { number: entry.number, title: entry.title };
   };
 
   const searchInput = (
@@ -1240,10 +1289,20 @@ export function PullRequestsPage() {
       data-workspace-titlebar-controls
     >
       {rightPanelState.isOpen ? (
-        <RightPanelMaximizeControl
-          maximized={rightPanelMaximized}
-          onToggle={toggleRightPanelMaximized}
-        />
+        <>
+          <PullRequestQueueNavigation
+            previous={queueNeighbour(queue.previous)}
+            next={queueNeighbour(queue.next)}
+            previousShortcut={shortcutLabelForCommand(keybindings, "thread.previous")}
+            nextShortcut={shortcutLabelForCommand(keybindings, "thread.next")}
+            onPrevious={() => walkQueue(queue.previous)}
+            onNext={() => walkQueue(queue.next)}
+          />
+          <RightPanelMaximizeControl
+            maximized={rightPanelMaximized}
+            onToggle={toggleRightPanelMaximized}
+          />
+        </>
       ) : null}
       {panelToggleControls}
     </div>
@@ -1282,6 +1341,7 @@ export function PullRequestsPage() {
           query={typedQuery}
           filtered={
             menuFiltered ||
+            search.packet !== undefined ||
             search.state !== "open" ||
             search.involvement !== "all" ||
             scopedProjectId !== undefined ||
@@ -1301,6 +1361,7 @@ export function PullRequestsPage() {
           selected={selected}
           showProvider={showProvider}
           statsRef={registerStatsRow}
+          standingOf={standingOf}
           onSelect={selectEntry}
           onIntent={prefetchEntry}
           hostActionsOf={hostActionsOf}
@@ -1406,6 +1467,8 @@ export function PullRequestsPage() {
       authorOptions={facets.authors}
       labelOptions={facets.labels}
       optionScope={filterOptionScope}
+      packet={search.packet}
+      onPacket={(packet) => updateListScope({ packet })}
       host={search.host}
       hostOptions={hostMenuOptions}
       onHost={(host) => updateListScope({ host })}
@@ -1559,6 +1622,15 @@ export function PullRequestsPage() {
     event.stopPropagation();
     if (!event.repeat) toggleRightPanel();
   });
+  // Claimed even at either end of the queue, where the sidebar would otherwise leave the page.
+  const walkQueueFromShortcut = useEffectEvent(
+    (event: KeyboardEvent, direction: "previous" | "next") => {
+      if (queue.keys.length === 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) walkQueue(direction === "next" ? queue.next : queue.previous);
+    },
+  );
   const toggleRightPanelMaximizedFromShortcut = useEffectEvent((event: KeyboardEvent) => {
     if (!rightPanelState.isOpen) return;
     event.preventDefault();
@@ -1576,6 +1648,9 @@ export function PullRequestsPage() {
       if (command === "rightPanel.toggle") toggleRightPanelFromShortcut(event);
       if (command === "rightPanel.toggleMaximized") toggleRightPanelMaximizedFromShortcut(event);
       if (command === "thread.copyReference") copyPullRequestFromShortcut(event);
+      // On this page the list being walked is the pull request queue, not the sidebar's threads.
+      const direction = threadTraversalDirectionFromCommand(command);
+      if (direction !== null) walkQueueFromShortcut(event, direction);
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);

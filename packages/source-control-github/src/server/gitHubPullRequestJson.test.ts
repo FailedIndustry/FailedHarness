@@ -58,6 +58,7 @@ const row = (fields: Record<string, unknown>) => ({
   url: "https://github.com/pingdotgg/t3code/pull/1",
   author: null,
   headRefName: "feat/page",
+  headRefOid: "0123456789abcdef0123456789abcdef01234567",
   baseRefName: "main",
   state: "OPEN",
   isDraft: false,
@@ -270,6 +271,8 @@ describe("pull request list decoding", () => {
       decodePullRequestListJson(listJson([{ state: "CLOSED", mergedAt: "2026-07-03T00:00:00Z" }])),
     ).items;
     expect(entry?.state).toBe("merged");
+    // The head commit says whether a stored review packet still covers the pull request.
+    expect(entry?.headSha).toBe("0123456789abcdef0123456789abcdef01234567");
   });
 
   it("takes the verdict from the latest reviews when GitHub summarizes none, as for a bot's approval", () => {

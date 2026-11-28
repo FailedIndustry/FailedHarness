@@ -23,7 +23,14 @@ import type {
 
 import { isStalePullRequestReply } from "@t3tools/client-runtime/pull-request-reply";
 import { toSortableTimestamp } from "@t3tools/client-runtime/state/thread-sort";
-import type { PullRequestListSort } from "./pullRequestListPreferences";
+import {
+  mergeReadinessTier,
+  rankReviewQueue,
+  reviewStanding,
+  type ReviewQueuePacket,
+  type ReviewStanding,
+} from "@t3tools/shared/reviewQueue";
+import type { PullRequestListSort, PullRequestPacketFilter } from "./pullRequestListPreferences";
 
 export interface EnvironmentPullRequestEntry extends PullRequestListEntry {
   readonly environmentId: EnvironmentId;
@@ -767,25 +774,70 @@ export function rankPullRequestMatches<Entry extends PullRequestListEntry>(
   });
 }
 
-export function rankPullRequestsByMergeReadiness<Entry extends PullRequestListEntry>(
-  entries: ReadonlyArray<Entry>,
-  hasMeasuredSize: (entry: Entry) => boolean = (entry) => entry.additions + entry.deletions > 0,
-): ReadonlyArray<Entry> {
-  const tier = (entry: Entry) => {
-    if (entry.mergeability === "conflicting") return 4;
-    if (entry.state !== "open") return 3;
-    if (entry.isDraft) return 2;
-    if (entry.checksState === "passing" && entry.reviewDecision === "approved") return 0;
-    if (entry.checksState === "passing") return 1;
-    return 2;
-  };
-  return entries.toSorted((left, right) => {
-    const byTier = tier(left) - tier(right);
-    if (byTier !== 0) return byTier;
+const measuredFirst =
+  <Entry extends PullRequestListEntry>(hasMeasuredSize: (entry: Entry) => boolean) =>
+  (left: Entry, right: Entry) => {
     const measured = Number(hasMeasuredSize(right)) - Number(hasMeasuredSize(left));
     const sized = left.additions + left.deletions - (right.additions + right.deletions);
     return measured || sized || comparePullRequestsByRecency(left, right);
-  });
+  };
+
+const hasLineCounts = (entry: PullRequestListEntry) => entry.additions + entry.deletions > 0;
+
+export function rankPullRequestsByMergeReadiness<Entry extends PullRequestListEntry>(
+  entries: ReadonlyArray<Entry>,
+  hasMeasuredSize: (entry: Entry) => boolean = hasLineCounts,
+): ReadonlyArray<Entry> {
+  const tieBreak = measuredFirst(hasMeasuredSize);
+  return entries.toSorted(
+    (left, right) => mergeReadinessTier(left) - mergeReadinessTier(right) || tieBreak(left, right),
+  );
+}
+
+/** Today's readiness order until some listed pull request has a review packet. */
+function rankPullRequestReviewQueue<Entry extends PullRequestListEntry>(
+  entries: ReadonlyArray<Entry>,
+  packetOf: (entry: Entry) => ReviewQueuePacket | null,
+  hasMeasuredSize: (entry: Entry) => boolean = hasLineCounts,
+): ReadonlyArray<Entry> {
+  if (!entries.some((entry) => packetOf(entry) !== null)) {
+    return rankPullRequestsByMergeReadiness(entries, hasMeasuredSize);
+  }
+  return rankReviewQueue(
+    entries,
+    (entry) => reviewStanding(entry, packetOf(entry)),
+    measuredFirst(hasMeasuredSize),
+  );
+}
+
+const internedStandings = new Map<string, ReviewStanding>();
+
+/**
+ * What a row says about its packet: nothing without one or once closed. Equal standings are one
+ * object, so memoized rows skip re-rendering when the review signal changes another row.
+ */
+export function pullRequestRowStanding(
+  entry: PullRequestListEntry,
+  packet: ReviewQueuePacket | null,
+): ReviewStanding | undefined {
+  if (packet === null) return undefined;
+  const standing = reviewStanding(entry, packet);
+  if (standing.standing === "closed") return undefined;
+  const key = JSON.stringify(standing);
+  const held = internedStandings.get(key);
+  if (held !== undefined) return held;
+  internedStandings.set(key, standing);
+  return standing;
+}
+
+/** "Needs me" keeps the changes waiting on the reviewer: their move, or ready to review. */
+export function matchesPullRequestPacketFilter(
+  standing: ReviewStanding | undefined,
+  filter: PullRequestPacketFilter | undefined,
+): boolean {
+  return (
+    filter === undefined || standing?.standing === "your-move" || standing?.standing === "ready"
+  );
 }
 
 export function comparePullRequestsByRecency(
@@ -834,15 +886,18 @@ export function sortPullRequestGroups<Entry extends PullRequestListEntry>(
   groups: ReadonlyArray<PullRequestGroup<Entry>>,
   sort: PullRequestListSort,
   searchText: string,
-  hasMeasuredSize: (entry: Entry) => boolean = (entry) => entry.additions + entry.deletions > 0,
+  hasMeasuredSize: (entry: Entry) => boolean = hasLineCounts,
   involvement: PullRequestInvolvement = "all",
+  packetOf: (entry: Entry) => ReviewQueuePacket | null = () => null,
 ): ReadonlyArray<PullRequestGroup<Entry>> {
   const sortWithinGroups = (rank: (entries: ReadonlyArray<Entry>) => ReadonlyArray<Entry>) =>
     groups.map((group) => ({ ...group, entries: rank(group.entries) }));
 
   if (sort === "ready") {
     return searchText.trim().length === 0
-      ? sortWithinGroups((entries) => rankPullRequestsByMergeReadiness(entries, hasMeasuredSize))
+      ? sortWithinGroups((entries) =>
+          rankPullRequestReviewQueue(entries, packetOf, hasMeasuredSize),
+        )
       : groups;
   }
   if (sort === "blocked") {

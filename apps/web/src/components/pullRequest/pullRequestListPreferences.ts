@@ -19,6 +19,10 @@ export const PullRequestListSort = Schema.Literals([
 ]);
 export type PullRequestListSort = typeof PullRequestListSort.Type;
 
+/** Client-side only: the host knows nothing of review packets. */
+export const PullRequestPacketFilter = Schema.Literals(["needs-me"]);
+export type PullRequestPacketFilter = typeof PullRequestPacketFilter.Type;
+
 export interface PullRequestListPreferences {
   readonly involvement: PullRequestInvolvement;
   readonly state: PullRequestListState;
@@ -31,6 +35,7 @@ export interface PullRequestListPreferences {
   readonly checks?: NonNullable<PullRequestListFilters["checks"]>;
   readonly author?: string | undefined;
   readonly labels?: ReadonlyArray<string> | undefined;
+  readonly packet?: PullRequestPacketFilter;
   readonly sort?: PullRequestListSort;
 }
 
@@ -56,6 +61,7 @@ export const PullRequestListPreferencesSchema = Schema.Struct({
   checks: PullRequestListFilters.fields.checks,
   author: Schema.optional(BoundedPreference),
   labels: Schema.optional(Schema.Array(BoundedPreference).check(Schema.isMaxLength(10))),
+  packet: Schema.optional(PullRequestPacketFilter),
   sort: Schema.optional(PullRequestListSort),
 });
 
@@ -86,6 +92,7 @@ export function pullRequestListPreferences(
     ...(search.checks ? { checks: search.checks } : {}),
     ...(search.author ? { author: search.author } : {}),
     ...(search.labels && search.labels.length > 0 ? { labels: search.labels } : {}),
+    ...(search.packet ? { packet: search.packet } : {}),
     ...(search.sort && search.sort !== "ready" ? { sort: search.sort } : {}),
   };
 }

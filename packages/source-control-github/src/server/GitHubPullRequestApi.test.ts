@@ -245,6 +245,7 @@ function graphqlQuota(remaining: number, resetAt = "2099-08-13T14:00:00Z") {
 }
 
 const rowDefaults = {
+  headRefOid: "0123456789abcdef0123456789abcdef01234567",
   author: null,
   state: "OPEN",
   isDraft: false,
@@ -1242,6 +1243,7 @@ layer("GitHubPullRequestApi.layer", (it) => {
         },
         baseRefName: "main",
         headRefName: `feat/${number}`,
+        headRefOid: "0123456789abcdef0123456789abcdef01234567",
         state: "OPEN",
         isDraft: false,
         mergeable: "MERGEABLE",

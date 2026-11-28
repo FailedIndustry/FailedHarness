@@ -71,6 +71,19 @@ Review right in the Packet tab, then hand everything to the agent at once:
 
 New comments stay **Not sent** until you press **Send to agent** in the bar at the bottom of the tab, which names the thread working on the branch (pick one when several are). Sending never interrupts a running turn; the comments wait behind it. Answers appear under each comment as the agent gives them, and the Packet tab shows how many are waiting on you. Reply to follow up, or **Resolve** when you are done; **Reopen** brings one back. If no thread works on the branch yet, use **Check out in a worktree** from the bar, start that thread, then send. Comments on something a newer packet dropped move to **On earlier revisions** and can still be answered and resolved.
 
+#### Your review queue
+
+With the **Merge readiness** sort, the Pull requests list becomes a queue once any listed pull request has a packet. Each row with a packet says where it stands, and the list orders them that way:
+
+1. **Your move**: comments you have not sent (**3 not sent**), or answers from the agent with nothing else waiting on it (**2 answered**).
+2. **Ready to review**: a passing packet for the latest push, drafts included, with no comment waiting on anyone. Ones the host would merge come first.
+3. Pull requests without a packet that the host calls ready.
+4. **With the agent**: comments it has not answered yet (**With the agent · 2 open**), or a push its packet does not cover yet (**Packet behind**, GitHub only).
+5. **Packet failed** or **Blocked**.
+6. Everything else in its usual order, with conflicts and closed pull requests last.
+
+Within each, a pull request comes after the one its branch is based on. The list updates as packets arrive and the agent answers. **Filters → Review packet → Needs me** keeps only the first two. In an open pull request, the arrows beside its name, or `mod+shift+]` and `mod+shift+[` (the keys that step through threads), go to the next and previous one in the order the list had when you opened it.
+
 ### Pull request sharing across environments
 
 Disabled by default. In **Settings → Environments → Pull request sharing** (**Pull request routing** on mobile), opt in trusted environments to **Read PRs** or **Read and act** so review reads/actions can route through another connected environment signed into the same account on the same host (credentials never leave their machines). Enable on both source and target environments; only grant **Read and act** to environments you control.

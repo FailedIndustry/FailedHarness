@@ -185,6 +185,8 @@ export const PullRequestRow = Schema.Struct({
   ])),
   /** Identifies the name of the head Ref associated with the pull request, even if the ref has been deleted. */
   headRefName: Schema.String,
+  /** Identifies the oid of the head ref associated with the pull request, even if the ref has been deleted. */
+  headRefOid: Shared.GitObjectID,
   /** Identifies the name of the base Ref associated with the pull request, even if the ref has been deleted. */
   baseRefName: Schema.String,
   /** Identifies the state of the pull request. */
@@ -270,7 +272,7 @@ export const PullRequestSearch = GraphQL.query("PullRequestSearch", {
       { name: "search", body: ["(query:$", "q", " type:ISSUE first:$", "first", " after:$", "after", "){pageInfo{hasNextPage endCursor}nodes{__typename...", "PullRequestRow", "}}"] }
     ],
     fragments: [
-      { name: "PullRequestRow", body: ["on PullRequest{stack@include(if:$", "stacks", "){number size baseRefName}stackEntry@include(if:$", "stacks", "){position}number title url author{__typename login avatarUrl...on User{name}}headRefName baseRefName state isDraft mergeable reviewDecision latestReviews(first:20){nodes{state isMinimized author{__typename login}}}additions@include(if:$", "stats", ")deletions@include(if:$", "stats", ")createdAt updatedAt mergedAt repository{nameWithOwner}reviewRequests(first:20){nodes{requestedReviewer{__typename...on User{login}...on Team{slug}}}}labels(first:20){nodes{name color description}}commits(last:1){nodes{commit{statusCheckRollup{state}}}}}"] }
+      { name: "PullRequestRow", body: ["on PullRequest{stack@include(if:$", "stacks", "){number size baseRefName}stackEntry@include(if:$", "stacks", "){position}number title url author{__typename login avatarUrl...on User{name}}headRefName headRefOid baseRefName state isDraft mergeable reviewDecision latestReviews(first:20){nodes{state isMinimized author{__typename login}}}additions@include(if:$", "stats", ")deletions@include(if:$", "stats", ")createdAt updatedAt mergedAt repository{nameWithOwner}reviewRequests(first:20){nodes{requestedReviewer{__typename...on User{login}...on Team{slug}}}}labels(first:20){nodes{name color description}}commits(last:1){nodes{commit{statusCheckRollup{state}}}}}"] }
     ]
   },
   variables: {
@@ -322,7 +324,7 @@ export const PullRequestList = GraphQL.query("PullRequestList", {
       { name: "repository", body: ["(owner:$", "owner", " name:$", "name", "){pullRequests(first:$", "first", " after:$", "after", " states:$", "states", " orderBy:{field:CREATED_AT direction:DESC}){pageInfo{hasNextPage endCursor}nodes{...", "PullRequestRow", "}}}"] }
     ],
     fragments: [
-      { name: "PullRequestRow", body: ["on PullRequest{stack@include(if:$", "stacks", "){number size baseRefName}stackEntry@include(if:$", "stacks", "){position}number title url author{__typename login avatarUrl...on User{name}}headRefName baseRefName state isDraft mergeable reviewDecision latestReviews(first:20){nodes{state isMinimized author{__typename login}}}additions@include(if:$", "stats", ")deletions@include(if:$", "stats", ")createdAt updatedAt mergedAt repository{nameWithOwner}reviewRequests(first:20){nodes{requestedReviewer{__typename...on User{login}...on Team{slug}}}}labels(first:20){nodes{name color description}}commits(last:1){nodes{commit{statusCheckRollup{state}}}}}"] }
+      { name: "PullRequestRow", body: ["on PullRequest{stack@include(if:$", "stacks", "){number size baseRefName}stackEntry@include(if:$", "stacks", "){position}number title url author{__typename login avatarUrl...on User{name}}headRefName headRefOid baseRefName state isDraft mergeable reviewDecision latestReviews(first:20){nodes{state isMinimized author{__typename login}}}additions@include(if:$", "stats", ")deletions@include(if:$", "stats", ")createdAt updatedAt mergedAt repository{nameWithOwner}reviewRequests(first:20){nodes{requestedReviewer{__typename...on User{login}...on Team{slug}}}}labels(first:20){nodes{name color description}}commits(last:1){nodes{commit{statusCheckRollup{state}}}}}"] }
     ]
   },
   variables: {

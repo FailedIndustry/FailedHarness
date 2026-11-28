@@ -58,6 +58,7 @@ export function pullRequestSavedViewPatch(
     checks: preferences.checks,
     author: preferences.author,
     labels: preferences.labels,
+    packet: preferences.packet,
     sort: preferences.sort,
   };
 }

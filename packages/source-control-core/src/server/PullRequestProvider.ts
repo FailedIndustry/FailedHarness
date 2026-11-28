@@ -111,6 +111,8 @@ export interface ProviderChangeRequest {
   readonly checksState?: PullRequestChecksState | null | undefined;
   /** Absent where the host has no private change requests or names no visibility. */
   readonly visibility?: PullRequestVisibility;
+  /** Absent where the host's listing does not carry the head commit. */
+  readonly headSha?: string;
 }
 
 export interface ProviderChangeRequestSummary {
@@ -260,7 +262,7 @@ export interface ProviderChangeRequestStat {
   readonly deletions: number;
 }
 
-export interface ProviderChangeRequestDetail extends ProviderChangeRequest {
+export interface ProviderChangeRequestDetail extends Omit<ProviderChangeRequest, "headSha"> {
   readonly maintainerCanModify?: boolean;
   readonly headSha?: string | null;
   readonly body: string;

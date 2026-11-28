@@ -376,6 +376,8 @@ export const PullRequestListEntry = Schema.Struct({
   url: TrimmedNonEmptyString,
   author: Schema.NullOr(PullRequestActor),
   headBranch: GitRefName,
+  /** Absent where the host's listing does not carry the head commit. */
+  headSha: Schema.optional(TrimmedNonEmptyString),
   baseBranch: GitRefName,
   state: PullRequestState,
   isDraft: Schema.Boolean,

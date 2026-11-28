@@ -29,6 +29,7 @@ fragment PullRequestRow on PullRequest {
     }
   }
   headRefName
+  headRefOid
   baseRefName
   state
   isDraft

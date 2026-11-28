@@ -98,6 +98,7 @@ interface ListItemFields {
   readonly url: string;
   readonly author?: ActorFields | null | undefined;
   readonly headRefName: string;
+  readonly headRefOid?: string | null | undefined;
   readonly baseRefName: string;
   readonly state?: string | null | undefined;
   readonly isDraft?: boolean | undefined;
@@ -359,6 +360,7 @@ export interface GitHubPullRequestListItem {
   readonly url: string;
   readonly author: PullRequestActor | null;
   readonly headBranch: string;
+  readonly headSha?: string;
   readonly baseBranch: string;
   readonly state: PullRequestState;
   readonly isDraft: boolean;
@@ -374,7 +376,7 @@ export interface GitHubPullRequestListItem {
   readonly checksState: PullRequestChecksState | null;
 }
 
-export interface GitHubPullRequestDetail extends GitHubPullRequestListItem {
+export interface GitHubPullRequestDetail extends Omit<GitHubPullRequestListItem, "headSha"> {
   readonly isCrossRepository?: boolean;
   readonly headRepositoryOwner: string | null;
   readonly headRepositoryNameWithOwner?: string | null;
@@ -792,12 +794,14 @@ function toCommits(
 }
 
 function toListItem(raw: ListItemFields): GitHubPullRequestListItem {
+  const headSha = trimmed(raw.headRefOid);
   return {
     number: raw.number,
     title: raw.title,
     url: raw.url,
     author: toActor(raw.author),
     headBranch: raw.headRefName,
+    ...(headSha === null ? {} : { headSha }),
     baseBranch: raw.baseRefName,
     state: toState(raw),
     isDraft: raw.isDraft ?? false,
